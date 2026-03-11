@@ -6,7 +6,7 @@ const sonicwallConfig: BrandConfig = {
   tagline: "Cybersecurity That Delivers Real Business Outcomes",
   description:
     "Shop SonicWall firewalls, switches, access points, and cloud security solutions. Enterprise-grade protection for businesses of every size.",
-  logo: "/images/logo.svg",
+  logo: "/images/logo.png",
   logoWhite: "/images/logo-white.png",
   favicon: "/favicon.ico",
   colors: {
