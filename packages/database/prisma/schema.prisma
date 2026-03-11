@@ -1,0 +1,520 @@
+// =============================================================================
+// VAR E-Commerce Platform — Prisma Schema
+// Multi-brand, multi-vendor cybersecurity hardware/software reseller
+// PostgreSQL | Prisma 6.x
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SALES_REP
+  WAREHOUSE
+  VIEWER
+}
+
+enum AddressType {
+  BILLING
+  SHIPPING
+}
+
+enum PaymentTerms {
+  NET_0
+  NET_15
+  NET_30
+  NET_60
+  NET_90
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  ACH
+  NET_TERMS
+  WIRE
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum FulfillmentType {
+  WAREHOUSE
+  DROP_SHIP
+  MIXED
+}
+
+// =============================================================================
+// BRAND (multi-tenant storefronts)
+// =============================================================================
+
+model Brand {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  domain          String?
+  logoUrl         String?
+  faviconUrl      String?
+  themeConfig     Json?    @map("theme_config")
+  metaTitle       String?  @map("meta_title")
+  metaDescription String?  @map("meta_description")
+  ogImage         String?  @map("og_image")
+  settings        Json?
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  customers       Customer[]
+  categories      Category[]
+  brandProducts   BrandProduct[]
+  brandCategories BrandCategory[]
+  orders          Order[]
+
+  @@index([slug])
+  @@index([domain])
+  @@index([isActive])
+  @@map("brands")
+}
+
+// =============================================================================
+// USER (internal admin/ops — NOT customers)
+// =============================================================================
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(VIEWER)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  auditLogs AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+// =============================================================================
+// CUSTOMER (storefront buyers)
+// =============================================================================
+
+model Customer {
+  id                  String       @id @default(cuid())
+  email               String
+  firstName           String       @map("first_name")
+  lastName            String       @map("last_name")
+  company             String?
+  phone               String?
+  brandId             String       @map("brand_id")
+  brand               Brand        @relation(fields: [brandId], references: [id])
+  passwordHash        String?      @map("password_hash")
+  taxExempt           Boolean      @default(false) @map("tax_exempt")
+  taxId               String?      @map("tax_id")
+  defaultPaymentTerms PaymentTerms @default(NET_0) @map("default_payment_terms")
+  isActive            Boolean      @default(true) @map("is_active")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  addresses Address[]
+  orders    Order[]
+
+  @@unique([email, brandId])
+  @@index([email])
+  @@index([brandId])
+  @@index([company])
+  @@index([isActive])
+  @@map("customers")
+}
+
+// =============================================================================
+// ADDRESS
+// =============================================================================
+
+model Address {
+  id         String      @id @default(cuid())
+  customerId String      @map("customer_id")
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type       AddressType
+  firstName  String      @map("first_name")
+  lastName   String      @map("last_name")
+  company    String?
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  zip        String
+  country    String      @default("US")
+  phone      String?
+  isDefault  Boolean     @default(false) @map("is_default")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([type])
+  @@map("addresses")
+}
+
+// =============================================================================
+// VENDOR (manufacturers — SonicWall, Fortinet, Cisco, etc.)
+// =============================================================================
+
+model Vendor {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  website    String?
+  supportUrl String?  @map("support_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@index([slug])
+  @@map("vendors")
+}
+
+// =============================================================================
+// DISTRIBUTOR (where VAR procures — Ingram Micro, TD SYNNEX, etc.)
+// =============================================================================
+
+model Distributor {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  apiEndpoint  String?  @map("api_endpoint")
+  apiKey       String?  @map("api_key")
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  distributorProducts DistributorProduct[]
+
+  @@index([code])
+  @@map("distributors")
+}
+
+// =============================================================================
+// CATEGORY (hierarchical, brand-scoped)
+// =============================================================================
+
+model Category {
+  id          String     @id @default(cuid())
+  brandId     String     @map("brand_id")
+  brand       Brand      @relation(fields: [brandId], references: [id])
+  name        String
+  slug        String
+  description String?
+  image       String?
+  parentId    String?    @map("parent_id")
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  sortOrder   Int        @default(0) @map("sort_order")
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  productMappings CategoryProduct[]
+  brandCategories BrandCategory[]
+
+  @@unique([brandId, slug])
+  @@index([brandId])
+  @@index([slug])
+  @@index([parentId])
+  @@index([isActive])
+  @@map("categories")
+}
+
+// =============================================================================
+// PRODUCT
+// =============================================================================
+
+model Product {
+  id           String   @id @default(cuid())
+  vendorId     String   @map("vendor_id")
+  vendor       Vendor   @relation(fields: [vendorId], references: [id])
+  sku          String   @unique
+  mpn          String?  @map("mpn")
+  name         String
+  slug         String   @unique
+  tagline      String?
+  description  String?
+  images       String[]
+  primaryImage String?  @map("primary_image")
+  isActive     Boolean  @default(true) @map("is_active")
+  isFeatured   Boolean  @default(false) @map("is_featured")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  variants            ProductVariant[]
+  categoryMappings    CategoryProduct[]
+  brandProducts       BrandProduct[]
+  distributorProducts DistributorProduct[]
+
+  @@index([vendorId])
+  @@index([sku])
+  @@index([slug])
+  @@index([mpn])
+  @@index([isActive, isFeatured])
+  @@map("products")
+}
+
+// =============================================================================
+// PRODUCT VARIANT (different SKUs/configs of a product)
+// =============================================================================
+
+model ProductVariant {
+  id                String   @id @default(cuid())
+  productId         String   @map("product_id")
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name              String
+  sku               String   @unique
+  price             Int
+  cost              Int
+  compareAtPrice    Int?     @map("compare_at_price")
+  weight            Float?
+  dimensions        Json?
+  stock             Int      @default(0)
+  lowStockThreshold Int      @default(5) @map("low_stock_threshold")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@index([sku])
+  @@index([isActive])
+  @@map("product_variants")
+}
+
+// =============================================================================
+// BRAND PRODUCT (maps products to brands with brand-specific overrides)
+// =============================================================================
+
+model BrandProduct {
+  id         String   @id @default(cuid())
+  brandId    String   @map("brand_id")
+  brand      Brand    @relation(fields: [brandId], references: [id])
+  productId  String   @map("product_id")
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price      Int?
+  isActive   Boolean  @default(true) @map("is_active")
+  isFeatured Boolean  @default(false) @map("is_featured")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([brandId, productId])
+  @@index([brandId])
+  @@index([productId])
+  @@index([isActive, isFeatured])
+  @@map("brand_products")
+}
+
+// =============================================================================
+// BRAND CATEGORY (maps categories to brands)
+// =============================================================================
+
+model BrandCategory {
+  id         String   @id @default(cuid())
+  brandId    String   @map("brand_id")
+  brand      Brand    @relation(fields: [brandId], references: [id])
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+
+  @@unique([brandId, categoryId])
+  @@index([brandId])
+  @@index([categoryId])
+  @@map("brand_categories")
+}
+
+// =============================================================================
+// CATEGORY PRODUCT (many-to-many: products <-> categories)
+// =============================================================================
+
+model CategoryProduct {
+  id         String   @id @default(cuid())
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  productId  String   @map("product_id")
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sortOrder  Int      @default(0) @map("sort_order")
+
+  @@unique([categoryId, productId])
+  @@index([categoryId])
+  @@index([productId])
+  @@map("category_products")
+}
+
+// =============================================================================
+// DISTRIBUTOR PRODUCT (distributor pricing/availability)
+// =============================================================================
+
+model DistributorProduct {
+  id             String      @id @default(cuid())
+  distributorId  String      @map("distributor_id")
+  distributor    Distributor @relation(fields: [distributorId], references: [id])
+  productId      String      @map("product_id")
+  product        Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  distributorSku String      @map("distributor_sku")
+  cost           Int
+  stock          Int         @default(0)
+  lastSyncedAt   DateTime?   @map("last_synced_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  @@unique([distributorId, productId])
+  @@index([distributorId])
+  @@index([productId])
+  @@index([distributorSku])
+  @@map("distributor_products")
+}
+
+// =============================================================================
+// ORDER
+// =============================================================================
+
+model Order {
+  id               String           @id @default(cuid())
+  orderNumber      String           @unique @map("order_number")
+  brandId          String           @map("brand_id")
+  brand            Brand            @relation(fields: [brandId], references: [id])
+  customerId       String?          @map("customer_id")
+  customer         Customer?        @relation(fields: [customerId], references: [id])
+  customerEmail    String           @map("customer_email")
+  status           OrderStatus      @default(PENDING)
+  subtotal         Int
+  tax              Int              @default(0)
+  shipping         Int              @default(0)
+  discount         Int              @default(0)
+  total            Int
+  shippingAddress  Json?            @map("shipping_address")
+  billingAddress   Json?            @map("billing_address")
+  paymentMethod    PaymentMethod?   @map("payment_method")
+  paymentStatus    PaymentStatus    @default(PENDING) @map("payment_status")
+  paymentReference String?          @map("payment_reference")
+  notes            String?
+  customerNotes    String?          @map("customer_notes")
+  fulfilledBy      FulfillmentType? @map("fulfilled_by")
+  trackingNumber   String?          @map("tracking_number")
+  carrier          String?
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([orderNumber])
+  @@index([brandId])
+  @@index([customerId])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+// =============================================================================
+// ORDER ITEM
+// =============================================================================
+
+model OrderItem {
+  id               String           @id @default(cuid())
+  orderId          String           @map("order_id")
+  order            Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId String           @map("product_variant_id")
+  productVariant   ProductVariant   @relation(fields: [productVariantId], references: [id])
+  productName      String           @map("product_name")
+  productSku       String           @map("product_sku")
+  quantity         Int
+  unitPrice        Int              @map("unit_price")
+  totalPrice       Int              @map("total_price")
+  cost             Int
+  fulfilledBy      FulfillmentType? @map("fulfilled_by")
+  trackingNumber   String?          @map("tracking_number")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([productVariantId])
+  @@index([productSku])
+  @@map("order_items")
+}
+
+// =============================================================================
+// PAYMENT
+// =============================================================================
+
+model Payment {
+  id                    String        @id @default(cuid())
+  orderId               String        @map("order_id")
+  order                 Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method                PaymentMethod
+  amount                Int
+  status                PaymentStatus @default(PENDING)
+  provider              String
+  providerTransactionId String?       @map("provider_transaction_id")
+  metadata              Json?
+  createdAt             DateTime      @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([status])
+  @@index([providerTransactionId])
+  @@map("payments")
+}
+
+// =============================================================================
+// AUDIT LOG
+// =============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

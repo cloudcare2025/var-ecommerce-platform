@@ -1,0 +1,31 @@
+{
+  "name": "var-ecommerce",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:admin": "turbo run dev --filter=@var/admin",
+    "dev:storefront": "turbo run dev --filter=@var/storefront",
+    "lint": "turbo run lint",
+    "db:generate": "turbo run db:generate --filter=@var/database",
+    "db:push": "turbo run db:push --filter=@var/database",
+    "db:migrate": "turbo run db:migrate --filter=@var/database",
+    "db:seed": "turbo run db:seed --filter=@var/database",
+    "db:studio": "turbo run db:studio --filter=@var/database",
+    "clean": "turbo run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@10.9.2"
+}

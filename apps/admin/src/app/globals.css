@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  --admin-primary: #0F172A;
+  --admin-accent: #3B82F6;
+  --admin-success: #22C55E;
+  --admin-warning: #F59E0B;
+  --admin-danger: #EF4444;
+  --admin-bg: #F8FAFC;
+  --admin-sidebar: #0F172A;
+  --admin-card: #FFFFFF;
+  --admin-border: #E2E8F0;
+  --admin-text: #1E293B;
+  --admin-text-muted: #64748B;
+}
+
+@theme inline {
+  --color-admin-primary: var(--admin-primary);
+  --color-admin-accent: var(--admin-accent);
+  --color-admin-success: var(--admin-success);
+  --color-admin-warning: var(--admin-warning);
+  --color-admin-danger: var(--admin-danger);
+  --color-admin-bg: var(--admin-bg);
+  --color-admin-sidebar: var(--admin-sidebar);
+  --color-admin-card: var(--admin-card);
+  --color-admin-border: var(--admin-border);
+  --color-admin-text: var(--admin-text);
+  --color-admin-text-muted: var(--admin-text-muted);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Base resets */
+body {
+  background-color: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling for sidebar */
+.admin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Table row hover */
+.admin-table-row {
+  transition: background-color 0.1s ease;
+}
+
+.admin-table-row:hover {
+  background-color: #F8FAFC;
+}
+
+/* Status badge base */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Focus ring utility */
+.admin-focus {
+  outline: none;
+}
+
+.admin-focus:focus-visible {
+  box-shadow: 0 0 0 2px var(--admin-accent);
+  border-radius: 0.375rem;
+}
