@@ -16,6 +16,8 @@
     "db:migrate": "turbo run db:migrate --filter=@var/database",
     "db:seed": "turbo run db:seed --filter=@var/database",
     "db:studio": "turbo run db:studio --filter=@var/database",
+    "build:admin": "npx prisma generate --schema=packages/database/prisma/schema.prisma && turbo build --filter=@var/admin",
+    "build:storefront": "npx prisma generate --schema=packages/database/prisma/schema.prisma && turbo build --filter=@var/storefront",
     "clean": "turbo run clean",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },

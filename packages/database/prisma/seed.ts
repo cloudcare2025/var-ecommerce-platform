@@ -63,7 +63,7 @@ async function main() {
       domain: "sonicwall-store.com",
       logoUrl: "/images/logo.svg",
       faviconUrl: "/favicon.ico",
-      theme: {
+      themeConfig: {
         primary: "#0075DB",
         primaryLight: "#8DC1FC",
         secondary: "#1F2929",
@@ -100,7 +100,7 @@ async function main() {
       domain: "fortinet-store.com",
       logoUrl: "/images/fortinet-logo.svg",
       faviconUrl: "/favicon.ico",
-      theme: {
+      themeConfig: {
         primary: "#DA291C",
         primaryLight: "#FF6B6B",
         secondary: "#1A1A2E",
@@ -128,7 +128,7 @@ async function main() {
   // ── Categories ──
   const firewalls = await prisma.category.upsert({
     where: {
-      slug_brandId: { slug: "firewalls", brandId: sonicwallBrand.id },
+      brandId_slug: { slug: "firewalls", brandId: sonicwallBrand.id },
     },
     update: {},
     create: {
@@ -143,7 +143,7 @@ async function main() {
 
   const switches = await prisma.category.upsert({
     where: {
-      slug_brandId: { slug: "switches", brandId: sonicwallBrand.id },
+      brandId_slug: { slug: "switches", brandId: sonicwallBrand.id },
     },
     update: {},
     create: {
@@ -158,7 +158,7 @@ async function main() {
 
   const cloudSecurity = await prisma.category.upsert({
     where: {
-      slug_brandId: {
+      brandId_slug: {
         slug: "cloud-security",
         brandId: sonicwallBrand.id,
       },
@@ -176,7 +176,7 @@ async function main() {
 
   const endpoint = await prisma.category.upsert({
     where: {
-      slug_brandId: { slug: "endpoint", brandId: sonicwallBrand.id },
+      brandId_slug: { slug: "endpoint", brandId: sonicwallBrand.id },
     },
     update: {},
     create: {
@@ -191,7 +191,7 @@ async function main() {
 
   const management = await prisma.category.upsert({
     where: {
-      slug_brandId: { slug: "management", brandId: sonicwallBrand.id },
+      brandId_slug: { slug: "management", brandId: sonicwallBrand.id },
     },
     update: {},
     create: {
