@@ -2,10 +2,11 @@
  * D&H Distributing API Client
  *
  * OAuth2 client_credentials flow with in-memory token caching.
- * Provides item search by MPN and bulk price/availability lookups.
+ * Provides full catalog scroll, item search by MPN, and bulk price/availability.
  *
- * Endpoint base: https://api.dandh.com
+ * Endpoint base: https://api.dandh.com/customerOrderManagement/v2
  * Auth:          https://auth.dandh.com/api/oauth/token
+ * Required:      dandh-tenant: dhus header on ALL requests
  */
 
 import { rateLimiter } from "../utils/rate-limiter";
@@ -19,18 +20,56 @@ export interface DhItem {
   vendorName: string;
   vendorItemId: string; // MPN
   description: string;
-  salesPrice: number; // dollars
-  estimatedRetailPrice: number | null;
+  estimatedRetailPrice: number | null; // MSRP in dollars
+  minimumAdvertisedPrice: number | null; // MAP in dollars
+  unilateralPricingPolicy: number | null; // UPP in dollars
+  universalProductCode: string;
+  isFactoryDirect: boolean;
+  isFreeFreightEligible: boolean;
+  itemType: string;
+  salesPrice: number; // reseller cost in dollars (from price lookup)
   totalAvailableQuantity: number;
   branchInventory: { branchId: string; branchName: string; quantity: number }[];
 }
 
+export interface DhCatalogItem {
+  itemId: string;
+  vendorName: string;
+  vendorItemId: string; // MPN
+  description: string;
+  estimatedRetailPrice: string | null;
+  minimumAdvertisedPrice: string | null;
+  unilateralPricingPolicy: string | null;
+  universalProductCode: string;
+  isFactoryDirect: boolean;
+  isFreeFreightEligible: boolean;
+  itemType: string;
+  enrollmentEligible: boolean;
+  shippingDimensions: {
+    weight: string;
+    height: string;
+    width: string;
+    depth: string;
+  } | null;
+}
+
 export interface DhClient {
   /** Search items by manufacturer part numbers */
-  getItemsByMpn(mpns: string[]): Promise<DhItem[]>;
+  getItemsByMpn(mpns: string[]): Promise<DhCatalogItem[]>;
+  /** Full catalog scroll — returns ALL items via cursor pagination */
+  scrollFullCatalog(
+    pageSize?: number,
+    onPage?: (items: DhCatalogItem[], pageNum: number) => void,
+  ): Promise<DhCatalogItem[]>;
   /** Bulk price and availability for known D&H item IDs */
   bulkPriceAndAvailability(itemIds: string[]): Promise<DhItem[]>;
 }
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const API_BASE = "https://api.dandh.com/customerOrderManagement/v2";
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -119,6 +158,7 @@ async function dhFetch(
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
+      "dandh-tenant": "dhus",
       ...init?.headers,
     },
   });
@@ -142,42 +182,102 @@ async function dhFetch(
 // Response normalization
 // ---------------------------------------------------------------------------
 
-interface DhRawItem {
+interface DhRawCatalogItem {
   itemId?: string;
   vendorName?: string;
   vendorItemId?: string;
   description?: string;
-  salesPrice?: number;
-  estimatedRetailPrice?: number | null;
-  totalAvailableQuantity?: number;
-  branchInventory?: {
-    branchId?: string;
-    branchName?: string;
-    quantity?: number;
-  }[];
+  estimatedRetailPrice?: string | null;
+  mininumAdvertisedPrice?: string | null; // Note: API typo "mininum"
+  unilateralPricingPolicy?: string | null;
+  universalProductCode?: string;
+  isFactoryDirect?: boolean;
+  isFreeFreightEligible?: boolean;
+  itemType?: string;
+  enrollmentEligible?: boolean;
+  shippingDimensions?: {
+    weight?: string;
+    height?: string;
+    width?: string;
+    depth?: string;
+  };
 }
 
-function normalizeItem(raw: DhRawItem): DhItem {
-  const branchInventory = Array.isArray(raw.branchInventory)
-    ? raw.branchInventory.map((b) => ({
-        branchId: String(b.branchId ?? ""),
-        branchName: String(b.branchName ?? ""),
-        quantity: Number(b.quantity ?? 0),
-      }))
-    : [];
-
+function normalizeCatalogItem(raw: DhRawCatalogItem): DhCatalogItem {
   return {
     itemId: String(raw.itemId ?? ""),
     vendorName: String(raw.vendorName ?? ""),
     vendorItemId: String(raw.vendorItemId ?? ""),
     description: String(raw.description ?? ""),
-    salesPrice: Number(raw.salesPrice ?? 0),
+    estimatedRetailPrice: raw.estimatedRetailPrice ?? null,
+    minimumAdvertisedPrice: raw.mininumAdvertisedPrice ?? null,
+    unilateralPricingPolicy: raw.unilateralPricingPolicy ?? null,
+    universalProductCode: String(raw.universalProductCode ?? ""),
+    isFactoryDirect: raw.isFactoryDirect ?? false,
+    isFreeFreightEligible: raw.isFreeFreightEligible ?? false,
+    itemType: String(raw.itemType ?? ""),
+    enrollmentEligible: raw.enrollmentEligible ?? false,
+    shippingDimensions: raw.shippingDimensions
+      ? {
+          weight: String(raw.shippingDimensions.weight ?? "0"),
+          height: String(raw.shippingDimensions.height ?? "0"),
+          width: String(raw.shippingDimensions.width ?? "0"),
+          depth: String(raw.shippingDimensions.depth ?? "0"),
+        }
+      : null,
+  };
+}
+
+interface DhRawPnaItem {
+  itemId?: string;
+  salesPrice?: string;
+  totalAvailableQuantity?: number;
+  branchInventory?: {
+    branch?: string;
+    availableQuantity?: number;
+  }[];
+  rebate?: {
+    amount?: string;
+    endDate?: string;
+  };
+}
+
+function normalizePnaItem(
+  raw: DhRawPnaItem,
+  catalog?: DhCatalogItem,
+): DhItem {
+  const branches = Array.isArray(raw.branchInventory)
+    ? raw.branchInventory.map((b) => ({
+        branchId: String(b.branch ?? ""),
+        branchName: String(b.branch ?? ""),
+        quantity: Number(b.availableQuantity ?? 0),
+      }))
+    : [];
+
+  return {
+    itemId: String(raw.itemId ?? catalog?.itemId ?? ""),
+    vendorName: catalog?.vendorName ?? "",
+    vendorItemId: catalog?.vendorItemId ?? "",
+    description: catalog?.description ?? "",
     estimatedRetailPrice:
-      raw.estimatedRetailPrice != null
-        ? Number(raw.estimatedRetailPrice)
+      catalog?.estimatedRetailPrice != null
+        ? parseFloat(catalog.estimatedRetailPrice)
         : null,
+    minimumAdvertisedPrice:
+      catalog?.minimumAdvertisedPrice != null
+        ? parseFloat(catalog.minimumAdvertisedPrice)
+        : null,
+    unilateralPricingPolicy:
+      catalog?.unilateralPricingPolicy != null
+        ? parseFloat(catalog.unilateralPricingPolicy)
+        : null,
+    universalProductCode: catalog?.universalProductCode ?? "",
+    isFactoryDirect: catalog?.isFactoryDirect ?? false,
+    isFreeFreightEligible: catalog?.isFreeFreightEligible ?? false,
+    itemType: catalog?.itemType ?? "",
+    salesPrice: parseFloat(raw.salesPrice ?? "0"),
     totalAvailableQuantity: Number(raw.totalAvailableQuantity ?? 0),
-    branchInventory,
+    branchInventory: branches,
   };
 }
 
@@ -192,32 +292,76 @@ export function createDhClient(): DhClient {
     // ------------------------------------------------------------------
     // getItemsByMpn — search by vendor item IDs (MPNs), handles scroll
     // ------------------------------------------------------------------
-    async getItemsByMpn(mpns: string[]): Promise<DhItem[]> {
+    async getItemsByMpn(mpns: string[]): Promise<DhCatalogItem[]> {
       if (mpns.length === 0) return [];
 
-      const allItems: DhItem[] = [];
+      const allItems: DhCatalogItem[] = [];
       const vendorItemIds = mpns.join(",");
 
       let url: string | null =
-        `https://api.dandh.com/customers/${accountId}/items?vendorItemIds=${encodeURIComponent(vendorItemIds)}`;
+        `${API_BASE}/customers/${accountId}/items?vendorItemIds=${encodeURIComponent(vendorItemIds)}`;
 
       while (url) {
         const res = await dhFetch(url);
         const json = (await res.json()) as {
-          items?: DhRawItem[];
+          elements?: DhRawCatalogItem[];
           scrollId?: string;
+          hasNext?: boolean;
         };
 
-        if (Array.isArray(json.items)) {
-          for (const raw of json.items) {
-            allItems.push(normalizeItem(raw));
+        if (Array.isArray(json.elements)) {
+          for (const raw of json.elements) {
+            allItems.push(normalizeCatalogItem(raw));
           }
         }
 
-        // Scroll pagination: if the response includes a scrollId, fetch the
-        // next page using that ID.
-        if (json.scrollId) {
-          url = `https://api.dandh.com/customers/${accountId}/items?scrollId=${encodeURIComponent(json.scrollId)}`;
+        if (json.hasNext && json.scrollId) {
+          url = `${API_BASE}/customers/${accountId}/items?scrollId=${encodeURIComponent(json.scrollId)}`;
+        } else {
+          url = null;
+        }
+      }
+
+      return allItems;
+    },
+
+    // ------------------------------------------------------------------
+    // scrollFullCatalog — scroll through entire D&H catalog
+    // ------------------------------------------------------------------
+    async scrollFullCatalog(
+      pageSize = 50,
+      onPage?: (items: DhCatalogItem[], pageNum: number) => void,
+    ): Promise<DhCatalogItem[]> {
+      const allItems: DhCatalogItem[] = [];
+      let pageNum = 0;
+      let url: string | null =
+        `${API_BASE}/customers/${accountId}/items?pageSize=${pageSize}`;
+
+      while (url) {
+        const res = await dhFetch(url);
+        const json = (await res.json()) as {
+          elements?: DhRawCatalogItem[];
+          scrollId?: string;
+          hasNext?: boolean;
+        };
+
+        pageNum++;
+        const pageItems: DhCatalogItem[] = [];
+
+        if (Array.isArray(json.elements)) {
+          for (const raw of json.elements) {
+            const item = normalizeCatalogItem(raw);
+            pageItems.push(item);
+            allItems.push(item);
+          }
+        }
+
+        if (onPage) {
+          onPage(pageItems, pageNum);
+        }
+
+        if (json.hasNext && json.scrollId) {
+          url = `${API_BASE}/customers/${accountId}/items?scrollId=${encodeURIComponent(json.scrollId)}&pageSize=${pageSize}`;
         } else {
           url = null;
         }
@@ -237,17 +381,17 @@ export function createDhClient(): DhClient {
 
       for (let i = 0; i < itemIds.length; i += batchSize) {
         const batch = itemIds.slice(i, i + batchSize);
-        const ids = batch.join(",");
+        const ids = batch.map((id) => `items=${encodeURIComponent(id)}`).join("&");
 
         const res = await dhFetch(
-          `https://api.dandh.com/items/priceAndAvailability/bulk?itemIds=${encodeURIComponent(ids)}`,
+          `${API_BASE}/customers/${accountId}/items/priceAndAvailability/bulk?${ids}`,
         );
 
-        const json = (await res.json()) as DhRawItem[] | { items?: DhRawItem[] };
+        const json = (await res.json()) as DhRawPnaItem[] | { elements?: DhRawPnaItem[] };
 
-        const rawItems = Array.isArray(json) ? json : (json.items ?? []);
+        const rawItems = Array.isArray(json) ? json : (json.elements ?? []);
         for (const raw of rawItems) {
-          allItems.push(normalizeItem(raw));
+          allItems.push(normalizePnaItem(raw));
         }
       }
 

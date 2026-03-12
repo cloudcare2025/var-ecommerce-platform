@@ -47,7 +47,7 @@ const navigation: NavGroupConfig[] = [
     items: [
       { label: "Products", href: "/products", icon: <Package size={20} /> },
       { label: "Categories", href: "/products?tab=categories", icon: <FolderTree size={20} /> },
-      { label: "Vendors", href: "/products?tab=vendors", icon: <Truck size={20} /> },
+      { label: "Vendors", href: "/vendors", icon: <Truck size={20} /> },
     ],
   },
   {

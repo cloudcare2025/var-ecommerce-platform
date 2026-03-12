@@ -64,13 +64,51 @@ function chunk<T>(arr: T[], size: number): T[][] {
 interface StaleListing {
   id: string;
   syncProductId: string;
-  distributor: string;
   distributorSku: string;
   vendorPartNumber: string | null;
   costPrice: number | null;
   retailPrice: number | null;
   sellPrice: number | null;
   totalQuantity: number;
+}
+
+// ---------------------------------------------------------------------------
+// Tier filter builder
+// ---------------------------------------------------------------------------
+
+function buildTierFilter(tier: Tier) {
+  return tier === "standard"
+    ? {
+        OR: [
+          { syncProduct: { tier: { tier: "standard" } } },
+          { syncProduct: { tier: { is: null } } },
+        ],
+      }
+    : { syncProduct: { tier: { tier } } };
+}
+
+const STALE_ORDER = [{ lastSyncedAt: { sort: "asc" as const, nulls: "first" as const } }];
+
+function toStaleListing(l: {
+  id: string;
+  syncProductId: string;
+  distributorSku: string;
+  vendorPartNumber: string | null;
+  costPrice: bigint | null;
+  retailPrice: bigint | null;
+  sellPrice: bigint | null;
+  totalQuantity: bigint;
+}): StaleListing {
+  return {
+    id: l.id,
+    syncProductId: l.syncProductId,
+    distributorSku: l.distributorSku,
+    vendorPartNumber: l.vendorPartNumber,
+    costPrice: l.costPrice != null ? Number(l.costPrice) : null,
+    retailPrice: l.retailPrice != null ? Number(l.retailPrice) : null,
+    sellPrice: l.sellPrice != null ? Number(l.sellPrice) : null,
+    totalQuantity: Number(l.totalQuantity),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -93,41 +131,52 @@ export async function runIncrementalSync(
   const errors: string[] = [];
 
   const batchSize = BATCH_SIZES[tier];
+  const selectFields = {
+    id: true,
+    syncProductId: true,
+    distributorSku: true,
+    vendorPartNumber: true,
+    costPrice: true,
+    retailPrice: true,
+    sellPrice: true,
+    totalQuantity: true,
+  } as const;
 
   // =========================================================================
-  // Query stalest listings for this tier
+  // Query stalest listings from each per-distributor table
   // =========================================================================
 
-  const listings: StaleListing[] = await prisma.distributorListing.findMany({
-    where:
-      tier === "standard"
-        ? {
-            // Standard tier: include products explicitly tagged "standard"
-            // AND products with no tier assignment at all
-            OR: [
-              { syncProduct: { tier: { tier: "standard" } } },
-              { syncProduct: { tier: { is: null } } },
-            ],
-          }
-        : {
-            syncProduct: { tier: { tier } },
-          },
-    select: {
-      id: true,
-      syncProductId: true,
-      distributor: true,
-      distributorSku: true,
-      vendorPartNumber: true,
-      costPrice: true,
-      retailPrice: true,
-      sellPrice: true,
-      totalQuantity: true,
-    },
-    orderBy: [{ lastSyncedAt: { sort: "asc", nulls: "first" } }],
-    take: batchSize,
-  });
+  const tierFilter = buildTierFilter(tier);
+  const perDistBatch = Math.ceil(batchSize / 3);
 
-  if (listings.length === 0) {
+  const [rawIngram, rawSynnex, rawDh] = await Promise.all([
+    prisma.ingramListing.findMany({
+      where: tierFilter,
+      select: selectFields,
+      orderBy: STALE_ORDER,
+      take: perDistBatch,
+    }),
+    prisma.synnexListing.findMany({
+      where: tierFilter,
+      select: selectFields,
+      orderBy: STALE_ORDER,
+      take: perDistBatch,
+    }),
+    prisma.dhListing.findMany({
+      where: tierFilter,
+      select: selectFields,
+      orderBy: STALE_ORDER,
+      take: perDistBatch,
+    }),
+  ]);
+
+  const ingramListings = rawIngram.map(toStaleListing);
+  const synnexListings = rawSynnex.map(toStaleListing);
+  const dhListings = rawDh.map(toStaleListing);
+
+  const totalListings = ingramListings.length + synnexListings.length + dhListings.length;
+
+  if (totalListings === 0) {
     await prisma.syncJob.update({
       where: { id: job.id },
       data: {
@@ -140,28 +189,6 @@ export async function runIncrementalSync(
     });
 
     return { jobId: job.id, itemsProcessed: 0, itemsUpdated: 0, itemsFailed: 0 };
-  }
-
-  // =========================================================================
-  // Group listings by distributor
-  // =========================================================================
-
-  const dhListings: StaleListing[] = [];
-  const ingramListings: StaleListing[] = [];
-  const synnexListings: StaleListing[] = [];
-
-  for (const listing of listings) {
-    switch (listing.distributor) {
-      case "dh":
-        dhListings.push(listing);
-        break;
-      case "ingram":
-        ingramListings.push(listing);
-        break;
-      case "synnex":
-        synnexListings.push(listing);
-        break;
-    }
   }
 
   const dhClient = createDhClient();
@@ -190,8 +217,7 @@ export async function runIncrementalSync(
 
           try {
             if (!item) {
-              // No data returned — just touch the lastSyncedAt
-              await prisma.distributorListing.update({
+              await prisma.dhListing.update({
                 where: { id: listing.id },
                 data: { lastSyncedAt: now },
               });
@@ -213,7 +239,7 @@ export async function runIncrementalSync(
             if (priceChanged || quantityChanged) {
               const sellPrice = calculateSellPrice(newCost, newRetail ?? null);
 
-              await prisma.distributorListing.update({
+              await prisma.dhListing.update({
                 where: { id: listing.id },
                 data: {
                   costPrice: newCost,
@@ -227,7 +253,7 @@ export async function runIncrementalSync(
               if (priceChanged) {
                 await prisma.priceHistory.create({
                   data: {
-                    listingId: listing.id,
+                    dhListingId: listing.id,
                     costPrice: newCost,
                     retailPrice: newRetail,
                     totalQuantity: newQuantity,
@@ -238,30 +264,29 @@ export async function runIncrementalSync(
 
               // Update warehouse inventory
               for (const branch of item.branchInventory) {
-                await prisma.warehouseInventory.upsert({
-                  where: {
-                    listingId_warehouseId: {
-                      listingId: listing.id,
-                      warehouseId: branch.branchId,
-                    },
-                  },
-                  update: {
-                    warehouseName: branch.branchName,
-                    quantity: branch.quantity,
-                  },
-                  create: {
-                    listingId: listing.id,
-                    warehouseId: branch.branchId,
-                    warehouseName: branch.branchName,
-                    quantity: branch.quantity,
-                  },
+                const existingWh = await prisma.warehouseInventory.findFirst({
+                  where: { dhListingId: listing.id, warehouseId: branch.branchId },
                 });
+                if (existingWh) {
+                  await prisma.warehouseInventory.update({
+                    where: { id: existingWh.id },
+                    data: { warehouseName: branch.branchName, quantity: branch.quantity },
+                  });
+                } else {
+                  await prisma.warehouseInventory.create({
+                    data: {
+                      dhListingId: listing.id,
+                      warehouseId: branch.branchId,
+                      warehouseName: branch.branchName,
+                      quantity: branch.quantity,
+                    },
+                  });
+                }
               }
 
               itemsUpdated++;
             } else {
-              // No change — just touch the timestamp
-              await prisma.distributorListing.update({
+              await prisma.dhListing.update({
                 where: { id: listing.id },
                 data: { lastSyncedAt: now },
               });
@@ -309,7 +334,7 @@ export async function runIncrementalSync(
 
           try {
             if (!product) {
-              await prisma.distributorListing.update({
+              await prisma.ingramListing.update({
                 where: { id: listing.id },
                 data: { lastSyncedAt: now },
               });
@@ -331,7 +356,7 @@ export async function runIncrementalSync(
             if (priceChanged || quantityChanged) {
               const sellPrice = calculateSellPrice(newCost, newRetail ?? null);
 
-              await prisma.distributorListing.update({
+              await prisma.ingramListing.update({
                 where: { id: listing.id },
                 data: {
                   costPrice: newCost,
@@ -345,7 +370,7 @@ export async function runIncrementalSync(
               if (priceChanged) {
                 await prisma.priceHistory.create({
                   data: {
-                    listingId: listing.id,
+                    ingramListingId: listing.id,
                     costPrice: newCost,
                     retailPrice: newRetail,
                     totalQuantity: newQuantity,
@@ -355,29 +380,29 @@ export async function runIncrementalSync(
               }
 
               for (const wh of product.warehouses) {
-                await prisma.warehouseInventory.upsert({
-                  where: {
-                    listingId_warehouseId: {
-                      listingId: listing.id,
-                      warehouseId: wh.id,
-                    },
-                  },
-                  update: {
-                    warehouseName: wh.name,
-                    quantity: wh.quantity,
-                  },
-                  create: {
-                    listingId: listing.id,
-                    warehouseId: wh.id,
-                    warehouseName: wh.name,
-                    quantity: wh.quantity,
-                  },
+                const existingWh = await prisma.warehouseInventory.findFirst({
+                  where: { ingramListingId: listing.id, warehouseId: wh.id },
                 });
+                if (existingWh) {
+                  await prisma.warehouseInventory.update({
+                    where: { id: existingWh.id },
+                    data: { warehouseName: wh.name, quantity: wh.quantity },
+                  });
+                } else {
+                  await prisma.warehouseInventory.create({
+                    data: {
+                      ingramListingId: listing.id,
+                      warehouseId: wh.id,
+                      warehouseName: wh.name,
+                      quantity: wh.quantity,
+                    },
+                  });
+                }
               }
 
               itemsUpdated++;
             } else {
-              await prisma.distributorListing.update({
+              await prisma.ingramListing.update({
                 where: { id: listing.id },
                 data: { lastSyncedAt: now },
               });
@@ -421,7 +446,7 @@ export async function runIncrementalSync(
     for (const listing of listingsWithoutMpn) {
       itemsProcessed++;
       try {
-        await prisma.distributorListing.update({
+        await prisma.synnexListing.update({
           where: { id: listing.id },
           data: { lastSyncedAt: now },
         });
@@ -449,7 +474,7 @@ export async function runIncrementalSync(
 
           try {
             if (!item) {
-              await prisma.distributorListing.update({
+              await prisma.synnexListing.update({
                 where: { id: listing.id },
                 data: { lastSyncedAt: now },
               });
@@ -469,7 +494,7 @@ export async function runIncrementalSync(
                 listing.retailPrice ?? null,
               );
 
-              await prisma.distributorListing.update({
+              await prisma.synnexListing.update({
                 where: { id: listing.id },
                 data: {
                   costPrice: newCost,
@@ -482,7 +507,7 @@ export async function runIncrementalSync(
               if (priceChanged) {
                 await prisma.priceHistory.create({
                   data: {
-                    listingId: listing.id,
+                    synnexListingId: listing.id,
                     costPrice: newCost,
                     retailPrice: listing.retailPrice,
                     totalQuantity: newQuantity,
@@ -492,29 +517,29 @@ export async function runIncrementalSync(
               }
 
               for (const wh of item.warehouses) {
-                await prisma.warehouseInventory.upsert({
-                  where: {
-                    listingId_warehouseId: {
-                      listingId: listing.id,
-                      warehouseId: wh.id,
-                    },
-                  },
-                  update: {
-                    warehouseName: wh.name,
-                    quantity: wh.quantity,
-                  },
-                  create: {
-                    listingId: listing.id,
-                    warehouseId: wh.id,
-                    warehouseName: wh.name,
-                    quantity: wh.quantity,
-                  },
+                const existingWh = await prisma.warehouseInventory.findFirst({
+                  where: { synnexListingId: listing.id, warehouseId: wh.id },
                 });
+                if (existingWh) {
+                  await prisma.warehouseInventory.update({
+                    where: { id: existingWh.id },
+                    data: { warehouseName: wh.name, quantity: wh.quantity },
+                  });
+                } else {
+                  await prisma.warehouseInventory.create({
+                    data: {
+                      synnexListingId: listing.id,
+                      warehouseId: wh.id,
+                      warehouseName: wh.name,
+                      quantity: wh.quantity,
+                    },
+                  });
+                }
               }
 
               itemsUpdated++;
             } else {
-              await prisma.distributorListing.update({
+              await prisma.synnexListing.update({
                 where: { id: listing.id },
                 data: { lastSyncedAt: now },
               });

@@ -3,7 +3,7 @@
  *
  * Processes real-time price and availability updates pushed from
  * Ingram Micro's webhook system. Updates the corresponding
- * distributor listing, records price history, and refreshes
+ * Ingram listing, records price history, and refreshes
  * warehouse inventory.
  *
  * Creates an audit-trail SyncJob record for each processed event.
@@ -66,14 +66,9 @@ export async function handleIngramWebhook(
   const { ingramPartNumber, availableQuantity, customerPrice, warehouses } =
     payload.data;
 
-  // 2. Look up the existing listing
-  const listing = await prisma.distributorListing.findUnique({
-    where: {
-      distributor_distributorSku: {
-        distributor: "ingram",
-        distributorSku: ingramPartNumber,
-      },
-    },
+  // 2. Look up the existing Ingram listing directly by SKU
+  const listing = await prisma.ingramListing.findUnique({
+    where: { distributorSku: ingramPartNumber },
     select: {
       id: true,
       costPrice: true,
@@ -96,19 +91,24 @@ export async function handleIngramWebhook(
     lastSyncedAt: now,
   };
 
+  // Convert BigInt fields to Number for comparison (safe: values fit in Number range)
+  const currentCostPrice = listing.costPrice != null ? Number(listing.costPrice) : null;
+  const currentRetailPrice = listing.retailPrice != null ? Number(listing.retailPrice) : null;
+  const currentTotalQuantity = Number(listing.totalQuantity);
+
   let newCostCents: number | null = null;
   let priceChanged = false;
 
   if (customerPrice != null) {
     newCostCents = dollarsToCents(customerPrice);
-    if (newCostCents !== listing.costPrice) {
+    if (newCostCents !== currentCostPrice) {
       updateData.costPrice = newCostCents;
       priceChanged = true;
 
       // Recalculate sell price with the updated cost
       updateData.sellPrice = calculateSellPrice(
         newCostCents,
-        listing.retailPrice ?? null,
+        currentRetailPrice,
       );
     }
   }
@@ -117,8 +117,8 @@ export async function handleIngramWebhook(
     updateData.totalQuantity = availableQuantity;
   }
 
-  // 4. Update the listing
-  await prisma.distributorListing.update({
+  // 4. Update the Ingram listing
+  await prisma.ingramListing.update({
     where: { id: listing.id },
     data: updateData,
   });
@@ -127,10 +127,10 @@ export async function handleIngramWebhook(
   if (priceChanged) {
     await prisma.priceHistory.create({
       data: {
-        listingId: listing.id,
+        ingramListingId: listing.id,
         costPrice: newCostCents,
-        retailPrice: listing.retailPrice,
-        totalQuantity: availableQuantity ?? listing.totalQuantity,
+        retailPrice: currentRetailPrice,
+        totalQuantity: availableQuantity ?? currentTotalQuantity,
         recordedAt: now,
       },
     });
@@ -139,22 +139,23 @@ export async function handleIngramWebhook(
   // 6. Upsert warehouse inventory if provided
   if (warehouses && warehouses.length > 0) {
     for (const wh of warehouses) {
-      await prisma.warehouseInventory.upsert({
-        where: {
-          listingId_warehouseId: {
-            listingId: listing.id,
-            warehouseId: wh.id,
-          },
-        },
-        update: {
-          quantity: wh.quantity,
-        },
-        create: {
-          listingId: listing.id,
-          warehouseId: wh.id,
-          quantity: wh.quantity,
-        },
+      const existingWh = await prisma.warehouseInventory.findFirst({
+        where: { ingramListingId: listing.id, warehouseId: wh.id },
       });
+      if (existingWh) {
+        await prisma.warehouseInventory.update({
+          where: { id: existingWh.id },
+          data: { quantity: wh.quantity },
+        });
+      } else {
+        await prisma.warehouseInventory.create({
+          data: {
+            ingramListingId: listing.id,
+            warehouseId: wh.id,
+            quantity: wh.quantity,
+          },
+        });
+      }
     }
   }
 

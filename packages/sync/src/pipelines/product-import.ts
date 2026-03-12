@@ -36,6 +36,17 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
+/** Unified listing shape for merging across distributor tables */
+interface MergedListing {
+  distributor: "ingram" | "synnex" | "dh";
+  distributorSku: string;
+  costPrice: bigint | null;
+  sellPrice: bigint | null;
+  retailPrice: bigint | null;
+  totalQuantity: bigint;
+  lastSyncedAt: Date | null;
+}
+
 // ---------------------------------------------------------------------------
 // Main entry point
 // ---------------------------------------------------------------------------
@@ -44,14 +55,14 @@ export async function importSyncProduct(
   syncProductId: string,
   overrides?: ImportOverrides,
 ): Promise<ImportResult> {
-  // Load the SyncProduct with its best listing
+  // Load the SyncProduct with all per-distributor listings
   const syncProduct = await prisma.syncProduct.findUniqueOrThrow({
     where: { id: syncProductId },
     include: {
       vendor: true,
-      listings: {
-        orderBy: { costPrice: "asc" },
-      },
+      ingramListings: { orderBy: { costPrice: "asc" } },
+      synnexListings: { orderBy: { costPrice: "asc" } },
+      dhListings:     { orderBy: { costPrice: "asc" } },
     },
   });
 
@@ -59,18 +70,50 @@ export async function importSyncProduct(
     throw new Error(`SyncProduct ${syncProductId} is already imported as Product ${syncProduct.productId}`);
   }
 
+  // Merge all listings into a unified shape
+  const allListings: MergedListing[] = [
+    ...syncProduct.ingramListings.map((l) => ({
+      distributor: "ingram" as const,
+      distributorSku: l.distributorSku,
+      costPrice: l.costPrice,
+      sellPrice: l.sellPrice,
+      retailPrice: l.retailPrice,
+      totalQuantity: l.totalQuantity,
+      lastSyncedAt: l.lastSyncedAt,
+    })),
+    ...syncProduct.synnexListings.map((l) => ({
+      distributor: "synnex" as const,
+      distributorSku: l.distributorSku,
+      costPrice: l.costPrice,
+      sellPrice: l.sellPrice,
+      retailPrice: l.retailPrice,
+      totalQuantity: l.totalQuantity,
+      lastSyncedAt: l.lastSyncedAt,
+    })),
+    ...syncProduct.dhListings.map((l) => ({
+      distributor: "dh" as const,
+      distributorSku: l.distributorSku,
+      costPrice: l.costPrice,
+      sellPrice: l.sellPrice,
+      retailPrice: l.retailPrice,
+      totalQuantity: l.totalQuantity,
+      lastSyncedAt: l.lastSyncedAt,
+    })),
+  ];
+
   // Determine the best listing (lowest cost with stock)
-  const bestListing = syncProduct.listings.find((l) => l.costPrice && l.totalQuantity > 0)
-    ?? syncProduct.listings[0];
+  const bestListing = allListings.find((l) => l.costPrice && l.totalQuantity > 0n)
+    ?? allListings[0];
 
   const productName = overrides?.name ?? syncProduct.name;
   const productSku = overrides?.sku ?? `${syncProduct.vendor.slug}-${syncProduct.mpn}`.toUpperCase().replace(/[^A-Z0-9-]/g, "-");
   const productSlug = overrides?.slug ?? slugify(`${syncProduct.vendor.name}-${syncProduct.mpn}`);
 
-  const costCents = bestListing?.costPrice ?? 0;
-  const sellCents = bestListing?.sellPrice ?? costCents;
-  const retailCents = bestListing?.retailPrice ?? null;
-  const totalStock = syncProduct.listings.reduce((sum, l) => sum + l.totalQuantity, 0);
+  // Convert BigInt fields to Number (safe: values fit in Number range)
+  const costCents = Number(bestListing?.costPrice ?? 0);
+  const sellCents = Number(bestListing?.sellPrice ?? costCents);
+  const retailCents = bestListing?.retailPrice != null ? Number(bestListing.retailPrice) : null;
+  const totalStock = allListings.reduce((sum, l) => sum + Number(l.totalQuantity), 0);
 
   // Resolve brands if provided
   const brandSlugs = overrides?.brandSlugs ?? [];
@@ -107,12 +150,11 @@ export async function importSyncProduct(
     });
 
     // Create DistributorProduct records for each listing
-    for (const listing of syncProduct.listings) {
+    for (const listing of allListings) {
       // Look up the Distributor record by code
       const distributorCode = listing.distributor === "dh" ? "DANDH"
         : listing.distributor === "ingram" ? "INGRAM"
-        : listing.distributor === "synnex" ? "SYNNEX"
-        : listing.distributor.toUpperCase();
+        : "SYNNEX";
 
       const distributor = await tx.distributor.findUnique({
         where: { code: distributorCode },
@@ -128,16 +170,16 @@ export async function importSyncProduct(
           },
           update: {
             distributorSku: listing.distributorSku,
-            cost: listing.costPrice ?? 0,
-            stock: listing.totalQuantity,
+            cost: Number(listing.costPrice ?? 0),
+            stock: Number(listing.totalQuantity),
             lastSyncedAt: listing.lastSyncedAt,
           },
           create: {
             distributorId: distributor.id,
             productId: product.id,
             distributorSku: listing.distributorSku,
-            cost: listing.costPrice ?? 0,
-            stock: listing.totalQuantity,
+            cost: Number(listing.costPrice ?? 0),
+            stock: Number(listing.totalQuantity),
             lastSyncedAt: listing.lastSyncedAt,
           },
         });

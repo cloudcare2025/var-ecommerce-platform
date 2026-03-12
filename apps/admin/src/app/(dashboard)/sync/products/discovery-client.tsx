@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
-  Package,
   Download,
   X,
   Loader2,
@@ -26,9 +26,20 @@ interface DiscoveredProduct {
   createdAt: Date;
 }
 
+interface VendorOption {
+  name: string;
+  slug: string;
+}
+
 interface Props {
-  initialProducts: DiscoveredProduct[];
-  initialTotal: number;
+  products: DiscoveredProduct[];
+  total: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  vendor: string;
+  status: string;
+  vendors: VendorOption[];
 }
 
 function formatCents(cents: number | null): string {
@@ -36,56 +47,76 @@ function formatCents(cents: number | null): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export default function DiscoveryClient({ initialProducts, initialTotal }: Props) {
-  const [products, setProducts] = useState(initialProducts);
-  const [search, setSearch] = useState("");
+export default function DiscoveryClient({
+  products,
+  total,
+  page,
+  pageSize,
+  search: initialSearch,
+  vendor: initialVendor,
+  status: initialStatus,
+  vendors,
+}: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchInput, setSearchInput] = useState(initialSearch);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.ceil(total / pageSize);
 
-  const filtered = products.filter((p) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      p.mpn.toLowerCase().includes(q) ||
-      p.name.toLowerCase().includes(q) ||
-      p.vendor.toLowerCase().includes(q)
-    );
-  });
+  const navigate = useCallback(
+    (updates: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) {
+          params.set(key, value);
+        } else {
+          params.delete(key);
+        }
+      }
+      // Reset to page 1 when filters change (unless explicitly setting page)
+      if (!("page" in updates)) {
+        params.delete("page");
+      }
+      router.push(`/sync/products?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  // Debounced search
+  useEffect(() => {
+    if (searchInput === initialSearch) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      navigate({ search: searchInput });
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchInput, initialSearch, navigate]);
 
   async function handleImport(productId: string) {
     setActionLoading(productId);
     setError(null);
-
     const result = await importSyncProductAction(productId);
-
-    if (result.success) {
-      setProducts((prev) => prev.filter((p) => p.id !== productId));
-    } else {
+    if (!result.success) {
       setError(result.error);
     }
-
     setActionLoading(null);
+    router.refresh();
   }
 
   async function handleReject(productId: string) {
     setActionLoading(`reject-${productId}`);
     setError(null);
-
     const result = await rejectSyncProductAction(productId);
-
-    if (result.success) {
-      setProducts((prev) => prev.filter((p) => p.id !== productId));
-    } else {
+    if (!result.success) {
       setError(result.error);
     }
-
     setActionLoading(null);
+    router.refresh();
   }
 
   return (
@@ -94,7 +125,7 @@ export default function DiscoveryClient({ initialProducts, initialTotal }: Props
       <div>
         <h1 className="text-2xl font-semibold text-admin-text">Product Discovery</h1>
         <p className="text-sm text-admin-text-muted mt-1">
-          Review and import discovered products from distributor catalog syncs ({initialTotal} total)
+          Review and import discovered products from distributor catalog syncs ({total.toLocaleString()} total)
         </p>
       </div>
 
@@ -104,18 +135,39 @@ export default function DiscoveryClient({ initialProducts, initialTotal }: Props
         </div>
       )}
 
-      {/* Search */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-admin-text-muted" />
           <input
             type="text"
-            placeholder="Search by MPN, name, or vendor..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by MPN or name..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-admin-border bg-white text-admin-text placeholder:text-admin-text-muted focus:outline-none focus:ring-2 focus:ring-admin-accent/20 focus:border-admin-accent"
           />
         </div>
+
+        <select
+          value={initialVendor}
+          onChange={(e) => navigate({ vendor: e.target.value })}
+          className="text-sm rounded-lg border border-admin-border bg-white py-2 px-3 text-admin-text focus:outline-none focus:ring-2 focus:ring-admin-accent/20 focus:border-admin-accent"
+        >
+          <option value="">All Vendors</option>
+          {vendors.map((v) => (
+            <option key={v.slug} value={v.slug}>{v.name}</option>
+          ))}
+        </select>
+
+        <select
+          value={initialStatus}
+          onChange={(e) => navigate({ status: e.target.value })}
+          className="text-sm rounded-lg border border-admin-border bg-white py-2 px-3 text-admin-text focus:outline-none focus:ring-2 focus:ring-admin-accent/20 focus:border-admin-accent"
+        >
+          <option value="discovered">Discovered</option>
+          <option value="imported">Imported</option>
+          <option value="rejected">Rejected</option>
+        </select>
       </div>
 
       {/* Table */}
@@ -135,14 +187,14 @@ export default function DiscoveryClient({ initialProducts, initialTotal }: Props
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {products.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-8 text-center text-admin-text-muted">
-                    {search ? "No products match your search." : "No discovered products. Run a Full Catalog Sync to discover products."}
+                    {initialSearch ? "No products match your search." : "No products found for the current filters."}
                   </td>
                 </tr>
               ) : (
-                paginated.map((product) => (
+                products.map((product) => (
                   <tr key={product.id} className="border-b border-admin-border last:border-0 hover:bg-gray-50/50">
                     <td className="px-5 py-3 font-mono text-xs font-medium text-admin-text">{product.mpn}</td>
                     <td className="px-5 py-3 text-admin-text max-w-[300px] truncate">{product.name}</td>
@@ -153,30 +205,34 @@ export default function DiscoveryClient({ initialProducts, initialTotal }: Props
                     <td className="px-5 py-3 text-right tabular-nums">{product.totalStock.toLocaleString()}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleImport(product.id)}
-                          disabled={actionLoading !== null}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-admin-accent text-white text-xs font-medium hover:bg-admin-accent/90 disabled:opacity-50 transition-colors"
-                        >
-                          {actionLoading === product.id ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <Download size={12} />
-                          )}
-                          Import
-                        </button>
-                        <button
-                          onClick={() => handleReject(product.id)}
-                          disabled={actionLoading !== null}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-red-600 text-xs font-medium border border-red-200 hover:bg-red-50 disabled:opacity-50 transition-colors"
-                        >
-                          {actionLoading === `reject-${product.id}` ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <X size={12} />
-                          )}
-                          Reject
-                        </button>
+                        {initialStatus === "discovered" && (
+                          <>
+                            <button
+                              onClick={() => handleImport(product.id)}
+                              disabled={actionLoading !== null}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-admin-accent text-white text-xs font-medium hover:bg-admin-accent/90 disabled:opacity-50 transition-colors"
+                            >
+                              {actionLoading === product.id ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Download size={12} />
+                              )}
+                              Import
+                            </button>
+                            <button
+                              onClick={() => handleReject(product.id)}
+                              disabled={actionLoading !== null}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-red-600 text-xs font-medium border border-red-200 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                            >
+                              {actionLoading === `reject-${product.id}` ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <X size={12} />
+                              )}
+                              Reject
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -190,21 +246,21 @@ export default function DiscoveryClient({ initialProducts, initialTotal }: Props
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-admin-border">
             <span className="text-sm text-admin-text-muted">
-              Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+              Showing {((page - 1) * pageSize + 1).toLocaleString()}–{Math.min(page * pageSize, total).toLocaleString()} of {total.toLocaleString()}
             </span>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => navigate({ page: String(page - 1) })}
                 disabled={page === 1}
                 className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
               <span className="text-sm text-admin-text tabular-nums">
-                {page} / {totalPages}
+                {page.toLocaleString()} / {totalPages.toLocaleString()}
               </span>
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => navigate({ page: String(page + 1) })}
                 disabled={page === totalPages}
                 className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
               >

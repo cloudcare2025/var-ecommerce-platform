@@ -27,6 +27,9 @@ RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 
 # Build only the admin app
 ENV NEXT_TELEMETRY_DISABLED=1
+# Provide dummy DATABASE_URL for Next.js static page data collection (not used for actual queries)
+ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+ENV DATABASE_URL=${DATABASE_URL}
 RUN npx turbo build --filter=@var/admin
 
 # Production runner

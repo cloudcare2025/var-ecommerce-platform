@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Search,
   Tag,
   ChevronLeft,
   ChevronRight,
@@ -23,16 +25,19 @@ interface UnresolvedBrand {
   suggestionScore: number | null;
 }
 
-interface Vendor {
+interface VendorOption {
   id: string;
   name: string;
   slug: string;
 }
 
 interface Props {
-  initialBrands: UnresolvedBrand[];
-  initialTotal: number;
-  vendors: Vendor[];
+  brands: UnresolvedBrand[];
+  total: number;
+  page: number;
+  pageSize: number;
+  search: string;
+  vendors: VendorOption[];
 }
 
 function formatDistributor(code: string): string {
@@ -44,17 +49,53 @@ function formatDistributor(code: string): string {
   }
 }
 
-const ITEMS_PER_PAGE = 10;
-
-export default function BrandsClient({ initialBrands, initialTotal, vendors }: Props) {
-  const [brands, setBrands] = useState(initialBrands);
+export default function BrandsClient({
+  brands,
+  total,
+  page,
+  pageSize,
+  search: initialSearch,
+  vendors,
+}: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [searchInput, setSearchInput] = useState(initialSearch);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedVendors, setSelectedVendors] = useState<Record<string, string>>({});
-  const [page, setPage] = useState(1);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  const totalPages = Math.ceil(brands.length / ITEMS_PER_PAGE);
-  const paginated = brands.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(total / pageSize);
+
+  const navigate = useCallback(
+    (updates: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) {
+          params.set(key, value);
+        } else {
+          params.delete(key);
+        }
+      }
+      if (!("page" in updates)) {
+        params.delete("page");
+      }
+      router.push(`/sync/brands?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
+
+  // Debounced search
+  useEffect(() => {
+    if (searchInput === initialSearch) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      navigate({ search: searchInput });
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchInput, initialSearch, navigate]);
 
   async function handleResolve(brandId: string) {
     const vendorId = selectedVendors[brandId];
@@ -65,13 +106,12 @@ export default function BrandsClient({ initialBrands, initialTotal, vendors }: P
 
     const result = await resolveBrandAction(brandId, vendorId);
 
-    if (result.success) {
-      setBrands((prev) => prev.filter((b) => b.id !== brandId));
-    } else {
+    if (!result.success) {
       setError(result.error);
     }
 
     setActionLoading(null);
+    router.refresh();
   }
 
   return (
@@ -80,7 +120,7 @@ export default function BrandsClient({ initialBrands, initialTotal, vendors }: P
       <div>
         <h1 className="text-2xl font-semibold text-admin-text">Brand Resolution</h1>
         <p className="text-sm text-admin-text-muted mt-1">
-          Resolve unmatched brand names from distributor feeds ({initialTotal} pending)
+          Resolve unmatched brand names from distributor feeds ({total.toLocaleString()} pending)
         </p>
       </div>
 
@@ -89,6 +129,20 @@ export default function BrandsClient({ initialBrands, initialTotal, vendors }: P
           {error}
         </div>
       )}
+
+      {/* Search */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-admin-text-muted" />
+          <input
+            type="text"
+            placeholder="Search by raw value..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-admin-border bg-white text-admin-text placeholder:text-admin-text-muted focus:outline-none focus:ring-2 focus:ring-admin-accent/20 focus:border-admin-accent"
+          />
+        </div>
+      </div>
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-admin-border overflow-hidden">
@@ -107,17 +161,17 @@ export default function BrandsClient({ initialBrands, initialTotal, vendors }: P
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {brands.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-8 text-center text-admin-text-muted">
                     <div className="flex flex-col items-center gap-2">
                       <Tag size={24} className="text-green-500" />
-                      <span>All brands resolved! No pending items.</span>
+                      <span>{initialSearch ? "No brands match your search." : "All brands resolved! No pending items."}</span>
                     </div>
                   </td>
                 </tr>
               ) : (
-                paginated.map((brand) => (
+                brands.map((brand) => (
                   <tr key={brand.id} className="border-b border-admin-border last:border-0 hover:bg-gray-50/50">
                     <td className="px-5 py-3 font-medium text-admin-text">{brand.rawValue}</td>
                     <td className="px-5 py-3 text-admin-text-muted">{formatDistributor(brand.distributor)}</td>
@@ -186,21 +240,21 @@ export default function BrandsClient({ initialBrands, initialTotal, vendors }: P
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-admin-border">
             <span className="text-sm text-admin-text-muted">
-              Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, brands.length)} of {brands.length}
+              Showing {((page - 1) * pageSize + 1).toLocaleString()}–{Math.min(page * pageSize, total).toLocaleString()} of {total.toLocaleString()}
             </span>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => navigate({ page: String(page - 1) })}
                 disabled={page === 1}
                 className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
               <span className="text-sm text-admin-text tabular-nums">
-                {page} / {totalPages}
+                {page.toLocaleString()} / {totalPages.toLocaleString()}
               </span>
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => navigate({ page: String(page + 1) })}
                 disabled={page === totalPages}
                 className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
               >

@@ -11,6 +11,9 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  Truck,
+  Package,
+  Layers,
 } from "lucide-react";
 import { triggerSyncAction } from "@/lib/db/actions";
 
@@ -33,6 +36,9 @@ interface SyncStats {
   totalListings: number;
   unresolvedBrandsCount: number;
   lastSyncAt: Date | null;
+  vendorCount: number;
+  inStockCount: number;
+  multiDistributorCount: number;
 }
 
 interface Props {
@@ -113,7 +119,7 @@ export default function SyncDashboardClient({ initialJobs, stats }: Props) {
         </p>
       </div>
 
-      {/* Stats cards */}
+      {/* Stats cards - Row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-admin-border p-5">
           <div className="flex items-center gap-3 mb-2">
@@ -137,12 +143,47 @@ export default function SyncDashboardClient({ initialJobs, stats }: Props) {
 
         <div className="bg-white rounded-xl border border-admin-border p-5">
           <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+              <Truck size={18} />
+            </div>
+            <span className="text-sm font-medium text-admin-text-muted">Vendors</span>
+          </div>
+          <p className="text-2xl font-semibold text-admin-text">{stats.vendorCount.toLocaleString()}</p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-admin-border p-5">
+          <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-yellow-50 text-yellow-600">
               <AlertTriangle size={18} />
             </div>
             <span className="text-sm font-medium text-admin-text-muted">Unresolved Brands</span>
           </div>
           <p className="text-2xl font-semibold text-admin-text">{stats.unresolvedBrandsCount}</p>
+        </div>
+      </div>
+
+      {/* Stats cards - Row 2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-admin-border p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-lg bg-teal-50 text-teal-600">
+              <Layers size={18} />
+            </div>
+            <span className="text-sm font-medium text-admin-text-muted">Multi-Distributor Products</span>
+          </div>
+          <p className="text-2xl font-semibold text-admin-text">{stats.multiDistributorCount.toLocaleString()}</p>
+          <p className="text-xs text-admin-text-muted mt-1">Products with 2+ distributor listings</p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-admin-border p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+              <Package size={18} />
+            </div>
+            <span className="text-sm font-medium text-admin-text-muted">In Stock</span>
+          </div>
+          <p className="text-2xl font-semibold text-admin-text">{stats.inStockCount.toLocaleString()}</p>
+          <p className="text-xs text-admin-text-muted mt-1">Products with available inventory</p>
         </div>
 
         <div className="bg-white rounded-xl border border-admin-border p-5">

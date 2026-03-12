@@ -3,7 +3,7 @@
  *
  * Matches products across D&H, Ingram Micro, and TD SYNNEX using
  * MPN (manufacturer part number) as the cross-reference key.
- * Atomically upserts product records, distributor listings,
+ * Atomically upserts product records, per-distributor listings,
  * warehouse inventory, and price history within a Prisma transaction.
  */
 
@@ -50,6 +50,13 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+/** Map distributor key to the FK column name on WarehouseInventory / PriceHistory */
+const LISTING_FK_COLUMN = {
+  ingram: "ingramListingId",
+  synnex: "synnexListingId",
+  dh: "dhListingId",
+} as const;
 
 // ---------------------------------------------------------------------------
 // Main entry point
@@ -110,84 +117,128 @@ export async function upsertProductWithListing(
       },
     });
 
-    // ----- Upsert DistributorListing on [distributor, distributorSku] -----
-    const existingListing = await tx.distributorListing.findUnique({
-      where: {
-        distributor_distributorSku: {
-          distributor: listing.distributor,
-          distributorSku: listing.distributorSku,
-        },
-      },
-      select: { id: true, costPrice: true, retailPrice: true },
-    });
+    // ----- Upsert per-distributor listing -----
+    const listingData = {
+      syncProductId: syncProduct.id,
+      vendorPartNumber: listing.vendorPartNumber ?? null,
+      costPrice: listing.costPrice ?? null,
+      retailPrice: listing.retailPrice ?? null,
+      sellPrice: sellPrice ?? null,
+      totalQuantity: listing.totalQuantity,
+      rawVendorName: listing.rawVendorName ?? null,
+      rawMfgCode: listing.rawMfgCode ?? null,
+      lastSyncedAt: now,
+    };
 
-    const distributorListing = await tx.distributorListing.upsert({
-      where: {
-        distributor_distributorSku: {
-          distributor: listing.distributor,
-          distributorSku: listing.distributorSku,
-        },
-      },
-      update: {
-        syncProductId: syncProduct.id,
-        vendorPartNumber: listing.vendorPartNumber ?? undefined,
-        costPrice: listing.costPrice ?? undefined,
-        retailPrice: listing.retailPrice ?? undefined,
-        sellPrice: sellPrice ?? undefined,
-        totalQuantity: listing.totalQuantity,
-        rawVendorName: listing.rawVendorName ?? undefined,
-        rawMfgCode: listing.rawMfgCode ?? undefined,
-        lastSyncedAt: now,
-      },
-      create: {
-        syncProductId: syncProduct.id,
-        distributor: listing.distributor,
-        distributorSku: listing.distributorSku,
-        vendorPartNumber: listing.vendorPartNumber ?? null,
-        costPrice: listing.costPrice ?? null,
-        retailPrice: listing.retailPrice ?? null,
-        sellPrice: sellPrice ?? null,
-        totalQuantity: listing.totalQuantity,
-        rawVendorName: listing.rawVendorName ?? null,
-        rawMfgCode: listing.rawMfgCode ?? null,
-        lastSyncedAt: now,
-      },
-    });
+    const updateData = {
+      syncProductId: syncProduct.id,
+      vendorPartNumber: listing.vendorPartNumber ?? undefined,
+      costPrice: listing.costPrice ?? undefined,
+      retailPrice: listing.retailPrice ?? undefined,
+      sellPrice: sellPrice ?? undefined,
+      totalQuantity: listing.totalQuantity,
+      rawVendorName: listing.rawVendorName ?? undefined,
+      rawMfgCode: listing.rawMfgCode ?? undefined,
+      lastSyncedAt: now,
+    };
+
+    let distributorListingId: string;
+    let existingCostPrice: bigint | null = null;
+    let existingRetailPrice: bigint | null = null;
+    let isNewListing = false;
+
+    const fkColumn = LISTING_FK_COLUMN[listing.distributor];
+
+    if (listing.distributor === "ingram") {
+      const existing = await tx.ingramListing.findUnique({
+        where: { distributorSku: listing.distributorSku },
+        select: { id: true, costPrice: true, retailPrice: true },
+      });
+      existingCostPrice = existing?.costPrice ?? null;
+      existingRetailPrice = existing?.retailPrice ?? null;
+      isNewListing = existing === null;
+
+      const upserted = await tx.ingramListing.upsert({
+        where: { distributorSku: listing.distributorSku },
+        update: updateData,
+        create: { ...listingData, distributorSku: listing.distributorSku },
+      });
+      distributorListingId = upserted.id;
+    } else if (listing.distributor === "synnex") {
+      const existing = await tx.synnexListing.findUnique({
+        where: { distributorSku: listing.distributorSku },
+        select: { id: true, costPrice: true, retailPrice: true },
+      });
+      existingCostPrice = existing?.costPrice ?? null;
+      existingRetailPrice = existing?.retailPrice ?? null;
+      isNewListing = existing === null;
+
+      const upserted = await tx.synnexListing.upsert({
+        where: { distributorSku: listing.distributorSku },
+        update: updateData,
+        create: { ...listingData, distributorSku: listing.distributorSku },
+      });
+      distributorListingId = upserted.id;
+    } else {
+      const existing = await tx.dhListing.findUnique({
+        where: { distributorSku: listing.distributorSku },
+        select: { id: true, costPrice: true, retailPrice: true },
+      });
+      existingCostPrice = existing?.costPrice ?? null;
+      existingRetailPrice = existing?.retailPrice ?? null;
+      isNewListing = existing === null;
+
+      const upserted = await tx.dhListing.upsert({
+        where: { distributorSku: listing.distributorSku },
+        update: updateData,
+        create: { ...listingData, distributorSku: listing.distributorSku },
+      });
+      distributorListingId = upserted.id;
+    }
 
     // ----- Warehouse inventory -----
     if (listing.warehouses && listing.warehouses.length > 0) {
       for (const wh of listing.warehouses) {
-        await tx.warehouseInventory.upsert({
+        // Use raw query for conditional unique upsert since Prisma doesn't
+        // support partial unique indexes natively
+        const existingWh = await tx.warehouseInventory.findFirst({
           where: {
-            listingId_warehouseId: {
-              listingId: distributorListing.id,
-              warehouseId: wh.id,
-            },
-          },
-          update: {
-            warehouseName: wh.name,
-            quantity: wh.quantity,
-          },
-          create: {
-            listingId: distributorListing.id,
+            [fkColumn]: distributorListingId,
             warehouseId: wh.id,
-            warehouseName: wh.name,
-            quantity: wh.quantity,
           },
         });
+
+        if (existingWh) {
+          await tx.warehouseInventory.update({
+            where: { id: existingWh.id },
+            data: {
+              warehouseName: wh.name,
+              quantity: wh.quantity,
+            },
+          });
+        } else {
+          await tx.warehouseInventory.create({
+            data: {
+              [fkColumn]: distributorListingId,
+              warehouseId: wh.id,
+              warehouseName: wh.name,
+              quantity: wh.quantity,
+            },
+          });
+        }
       }
     }
 
     // ----- Price history (only if price actually changed) -----
     const priceChanged =
-      existingListing !== null &&
-      (existingListing.costPrice !== (listing.costPrice ?? null) ||
-        existingListing.retailPrice !== (listing.retailPrice ?? null));
+      !isNewListing &&
+      (existingCostPrice !== BigInt(listing.costPrice ?? 0) ||
+        existingRetailPrice !== BigInt(listing.retailPrice ?? 0));
 
     if (priceChanged) {
       await tx.priceHistory.create({
         data: {
-          listingId: distributorListing.id,
+          [fkColumn]: distributorListingId,
           costPrice: listing.costPrice ?? null,
           retailPrice: listing.retailPrice ?? null,
           totalQuantity: listing.totalQuantity,
@@ -197,10 +248,10 @@ export async function upsertProductWithListing(
     }
 
     // Also record initial price for brand-new listings
-    if (existingListing === null && (listing.costPrice != null || listing.retailPrice != null)) {
+    if (isNewListing && (listing.costPrice != null || listing.retailPrice != null)) {
       await tx.priceHistory.create({
         data: {
-          listingId: distributorListing.id,
+          [fkColumn]: distributorListingId,
           costPrice: listing.costPrice ?? null,
           retailPrice: listing.retailPrice ?? null,
           totalQuantity: listing.totalQuantity,
@@ -211,7 +262,7 @@ export async function upsertProductWithListing(
 
     return {
       productId: syncProduct.id,
-      listingId: distributorListing.id,
+      listingId: distributorListingId,
       created,
     };
   });

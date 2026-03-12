@@ -1,0 +1,17 @@
+node_modules
+.next
+.turbo
+dist
+out
+build
+coverage
+.git
+.env
+.env.*
+*.md
+*.pem
+.DS_Store
+.vscode
+.idea
+scripts
+docs

@@ -1,13 +1,35 @@
 export const dynamic = "force-dynamic";
 
-import { getDiscoveredProducts } from "@/lib/db/queries";
+import { getDiscoveredProducts, getTopVendors } from "@/lib/db/queries";
 import DiscoveryClient from "./discovery-client";
 
-export default async function ProductDiscoveryPage() {
-  const { products, total } = await getDiscoveredProducts({
-    page: 1,
-    pageSize: 25,
-  });
+export default async function ProductDiscoveryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; vendor?: string; status?: string; page?: string }>;
+}) {
+  const params = await searchParams;
+  const page = parseInt(params.page || "1");
+  const pageSize = 50;
+  const search = params.search || "";
+  const vendor = params.vendor || "";
+  const status = params.status || "discovered";
 
-  return <DiscoveryClient initialProducts={products} initialTotal={total} />;
+  const [{ products, total }, vendors] = await Promise.all([
+    getDiscoveredProducts({ search, vendor, status, page, pageSize }),
+    getTopVendors(200),
+  ]);
+
+  return (
+    <DiscoveryClient
+      products={products}
+      total={total}
+      page={page}
+      pageSize={pageSize}
+      search={search}
+      vendor={vendor}
+      status={status}
+      vendors={vendors}
+    />
+  );
 }

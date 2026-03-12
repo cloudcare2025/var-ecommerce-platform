@@ -228,18 +228,14 @@ export async function runFullCatalogSync(): Promise<FullSyncResult> {
             distributor: "dh",
             distributorSku: item.itemId,
             vendorPartNumber: item.vendorItemId,
-            costPrice: dollarsToCents(item.salesPrice),
+            costPrice: undefined, // Catalog items don't include pricing — requires separate PNA call
             retailPrice:
               item.estimatedRetailPrice != null
-                ? dollarsToCents(item.estimatedRetailPrice)
+                ? dollarsToCents(parseFloat(item.estimatedRetailPrice))
                 : undefined,
-            totalQuantity: item.totalAvailableQuantity,
+            totalQuantity: 0, // Catalog items don't include availability
             rawVendorName: item.vendorName,
-            warehouses: item.branchInventory.map((b) => ({
-              id: b.branchId,
-              name: b.branchName,
-              quantity: b.quantity,
-            })),
+            warehouses: [],
           },
         );
 

@@ -70,6 +70,12 @@ enum FulfillmentType {
   MIXED
 }
 
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 // =============================================================================
 // BRAND (multi-tenant storefronts)
 // =============================================================================
@@ -95,6 +101,7 @@ model Brand {
   brandProducts   BrandProduct[]
   brandCategories BrandCategory[]
   orders          Order[]
+  pageContent     PageContent[]
 
   @@index([slug])
   @@index([domain])
@@ -195,6 +202,9 @@ model Vendor {
   slug       String   @unique
   website    String?
   supportUrl String?  @map("support_url")
+  parentId   String?  @map("parent_id")
+  parent     Vendor?  @relation("VendorHierarchy", fields: [parentId], references: [id])
+  subBrands  Vendor[] @relation("VendorHierarchy")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -204,6 +214,7 @@ model Vendor {
   syncProducts     SyncProduct[]
 
   @@index([slug])
+  @@index([parentId])
   @@map("vendors")
 }
 
@@ -243,10 +254,20 @@ model Category {
   parentId    String?    @map("parent_id")
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryHierarchy")
-  sortOrder   Int        @default(0) @map("sort_order")
-  isActive    Boolean    @default(true) @map("is_active")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  sortOrder       Int        @default(0) @map("sort_order")
+  isActive        Boolean    @default(true) @map("is_active")
+
+  // ── CONTENT & SEO ──
+  heroHeadline    String?    @map("hero_headline")
+  heroDescription String?    @map("hero_description") @db.Text
+  heroGradient    String?    @map("hero_gradient")
+  metaTitle       String?    @map("meta_title")
+  metaDescription String?    @map("meta_description") @db.Text
+  ogImage         String?    @map("og_image")
+  schemaOrg       Json?      @map("schema_org") @db.JsonB
+
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
 
   productMappings CategoryProduct[]
   brandCategories BrandCategory[]
@@ -340,11 +361,136 @@ model BrandProduct {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  content ProductContent?
+
   @@unique([brandId, productId])
   @@index([brandId])
   @@index([productId])
   @@index([isActive, isFeatured])
   @@map("brand_products")
+}
+
+// =============================================================================
+// PRODUCT CONTENT (brand-product-level marketing, SEO, and display overrides)
+// =============================================================================
+
+model ProductContent {
+  id               String        @id @default(cuid())
+  brandProductId   String        @unique @map("brand_product_id")
+  brandProduct     BrandProduct  @relation(fields: [brandProductId], references: [id], onDelete: Cascade)
+
+  // ── DISPLAY OVERRIDES ──
+  displayName      String?       @map("display_name")
+  tagline          String?
+  series           String?
+  badge            String?
+
+  // ── MARKETING COPY ──
+  shortDescription String?       @map("short_description") @db.Text
+  longDescription  String?       @map("long_description") @db.Text
+  bulletPoints     Json?         @map("bullet_points") @db.JsonB
+  highlights       Json?         @db.JsonB
+
+  // ── SPECIFICATIONS ──
+  specs            Json?         @db.JsonB
+  techSpecs        Json?         @map("tech_specs") @db.JsonB
+
+  // ── IMAGES ──
+  heroImage        String?       @map("hero_image")
+  heroImageAlt     String?       @map("hero_image_alt")
+  galleryImages    Json?         @map("gallery_images") @db.JsonB
+  videoUrl         String?       @map("video_url")
+  videoThumbnail   String?       @map("video_thumbnail")
+
+  // ── SEO: META TAGS ──
+  metaTitle        String?       @map("meta_title")
+  metaDescription  String?       @map("meta_description") @db.Text
+  ogTitle          String?       @map("og_title")
+  ogDescription    String?       @map("og_description") @db.Text
+  ogImage          String?       @map("og_image")
+  twitterTitle     String?       @map("twitter_title")
+  twitterDescription String?     @map("twitter_description") @db.Text
+  twitterImage     String?       @map("twitter_image")
+  canonicalUrl     String?       @map("canonical_url")
+
+  // ── SEO: STRUCTURED DATA (JSON-LD) ──
+  schemaOrg        Json?         @map("schema_org") @db.JsonB
+
+  // ── SEO: SEARCH & DISCOVERY ──
+  searchKeywords   String[]      @map("search_keywords")
+  slug             String?
+  breadcrumbLabel  String?       @map("breadcrumb_label")
+  robotsMeta       String?       @map("robots_meta")
+
+  // ── SEO: RICH SNIPPETS ──
+  faqContent       Json?         @map("faq_content") @db.JsonB
+  comparisonData   Json?         @map("comparison_data") @db.JsonB
+  reviewSummary    Json?         @map("review_summary") @db.JsonB
+
+  // ── SEO: INTERNAL LINKING ──
+  relatedSlugs     String[]      @map("related_slugs")
+  crossSellSlugs   String[]      @map("cross_sell_slugs")
+  upSellSlugs      String[]      @map("up_sell_slugs")
+
+  // ── CATEGORIZATION ──
+  categoryPath     String?       @map("category_path")
+  tags             String[]
+  audience         String[]
+
+  // ── PUBLISHING ──
+  status           ContentStatus @default(DRAFT)
+  publishedAt      DateTime?     @map("published_at")
+
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([slug])
+  @@index([series])
+  @@map("product_content")
+}
+
+// =============================================================================
+// PAGE CONTENT (brand-level page sections — heroes, banners, CTAs)
+// =============================================================================
+
+model PageContent {
+  id               String        @id @default(cuid())
+  brandId          String        @map("brand_id")
+  brand            Brand         @relation(fields: [brandId], references: [id])
+
+  pageSlug         String        @map("page_slug")
+  placement        String
+  sortOrder        Int           @default(0) @map("sort_order")
+
+  title            String?
+  subtitle         String?
+  eyebrow          String?
+  body             String?       @db.Text
+  image            String?
+  imageAlt         String?       @map("image_alt")
+  ctaText          String?       @map("cta_text")
+  ctaLink          String?       @map("cta_link")
+  secondaryCtaText String?       @map("secondary_cta_text")
+  secondaryCtaLink String?       @map("secondary_cta_link")
+
+  data             Json?         @db.JsonB
+
+  metaTitle        String?       @map("meta_title")
+  metaDescription  String?       @map("meta_description") @db.Text
+  ogImage          String?       @map("og_image")
+  schemaOrg        Json?         @map("schema_org") @db.JsonB
+
+  status           ContentStatus @default(DRAFT)
+  publishedAt      DateTime?     @map("published_at")
+
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@unique([brandId, pageSlug, placement])
+  @@index([brandId, pageSlug])
+  @@index([status])
+  @@map("page_content")
 }
 
 // =============================================================================
@@ -592,6 +738,7 @@ model SyncProduct {
   slug         String?
   description  String?
   category     String?
+  subCategory  String?  @map("sub_category")
   isActive     Boolean  @default(true) @map("is_active")
   importStatus String   @default("discovered") @map("import_status") // discovered | imported | rejected
   productId    String?  @map("product_id")
@@ -599,8 +746,10 @@ model SyncProduct {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  listings DistributorListing[]
-  tier     ProductTier?
+  ingramListings IngramListing[] @relation("IngramListings")
+  synnexListings SynnexListing[] @relation("SynnexListings")
+  dhListings     DhListing[]     @relation("DhListings")
+  tier           ProductTier?
 
   @@unique([vendorId, mpn])
   @@index([vendorId])
@@ -610,19 +759,22 @@ model SyncProduct {
   @@map("sync_products")
 }
 
-model DistributorListing {
+model IngramListing {
   id               String      @id @default(cuid())
   syncProductId    String      @map("sync_product_id")
-  syncProduct      SyncProduct @relation(fields: [syncProductId], references: [id], onDelete: Cascade)
-  distributor      String
-  distributorSku   String      @map("distributor_sku")
+  syncProduct      SyncProduct @relation("IngramListings", fields: [syncProductId], references: [id], onDelete: Cascade)
+  distributorSku   String      @unique @map("distributor_sku")
   vendorPartNumber String?     @map("vendor_part_number")
-  costPrice        Int?        @map("cost_price")
-  retailPrice      Int?        @map("retail_price")
-  sellPrice        Int?        @map("sell_price")
-  totalQuantity    Int         @default(0) @map("total_quantity")
+  costPrice        BigInt?     @map("cost_price")
+  retailPrice      BigInt?     @map("retail_price")
+  sellPrice        BigInt?     @map("sell_price")
+  totalQuantity    BigInt      @default(0) @map("total_quantity")
   rawVendorName    String?     @map("raw_vendor_name")
   rawMfgCode       String?     @map("raw_mfg_code")
+  category         String?
+  subCategory      String?     @map("sub_category")
+  vendorNumber     String?     @map("vendor_number")
+  rawData          Json?       @map("raw_data")
   lastSyncedAt     DateTime?   @map("last_synced_at")
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
@@ -630,38 +782,106 @@ model DistributorListing {
   warehouses   WarehouseInventory[]
   priceHistory PriceHistory[]
 
-  @@unique([distributor, distributorSku])
   @@index([syncProductId])
-  @@index([distributor])
   @@index([lastSyncedAt])
-  @@map("distributor_listings")
+  @@map("ingram_listings")
+}
+
+model SynnexListing {
+  id               String      @id @default(cuid())
+  syncProductId    String      @map("sync_product_id")
+  syncProduct      SyncProduct @relation("SynnexListings", fields: [syncProductId], references: [id], onDelete: Cascade)
+  distributorSku   String      @unique @map("distributor_sku")
+  vendorPartNumber String?     @map("vendor_part_number")
+  costPrice        BigInt?     @map("cost_price")
+  retailPrice      BigInt?     @map("retail_price")
+  sellPrice        BigInt?     @map("sell_price")
+  totalQuantity    BigInt      @default(0) @map("total_quantity")
+  rawVendorName    String?     @map("raw_vendor_name")
+  rawMfgCode       String?     @map("raw_mfg_code")
+  category         String?
+  upc              String?
+  unspsc           String?
+  rawData          Json?       @map("raw_data")
+  lastSyncedAt     DateTime?   @map("last_synced_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  warehouses   WarehouseInventory[]
+  priceHistory PriceHistory[]
+
+  @@index([syncProductId])
+  @@index([lastSyncedAt])
+  @@map("synnex_listings")
+}
+
+model DhListing {
+  id               String      @id @default(cuid())
+  syncProductId    String      @map("sync_product_id")
+  syncProduct      SyncProduct @relation("DhListings", fields: [syncProductId], references: [id], onDelete: Cascade)
+  distributorSku   String      @unique @map("distributor_sku")
+  vendorPartNumber String?     @map("vendor_part_number")
+  costPrice        BigInt?     @map("cost_price")
+  retailPrice      BigInt?     @map("retail_price")
+  sellPrice        BigInt?     @map("sell_price")
+  mapPrice         BigInt?     @map("map_price")
+  totalQuantity    BigInt      @default(0) @map("total_quantity")
+  rawVendorName    String?     @map("raw_vendor_name")
+  rawMfgCode       String?     @map("raw_mfg_code")
+  category         String?
+  subCategory      String?     @map("sub_category")
+  upc              String?
+  weight           String?
+  stockStatus      String?     @map("stock_status")
+  rawData          Json?       @map("raw_data")
+  lastSyncedAt     DateTime?   @map("last_synced_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  warehouses   WarehouseInventory[]
+  priceHistory PriceHistory[]
+
+  @@index([syncProductId])
+  @@index([lastSyncedAt])
+  @@map("dh_listings")
 }
 
 model WarehouseInventory {
-  id            String             @id @default(cuid())
-  listingId     String             @map("listing_id")
-  listing       DistributorListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  warehouseId   String             @map("warehouse_id")
-  warehouseName String?            @map("warehouse_name")
-  quantity      Int                @default(0)
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
+  id              String         @id @default(cuid())
+  ingramListingId String?        @map("ingram_listing_id")
+  ingramListing   IngramListing? @relation(fields: [ingramListingId], references: [id], onDelete: Cascade)
+  synnexListingId String?        @map("synnex_listing_id")
+  synnexListing   SynnexListing? @relation(fields: [synnexListingId], references: [id], onDelete: Cascade)
+  dhListingId     String?        @map("dh_listing_id")
+  dhListing       DhListing?     @relation(fields: [dhListingId], references: [id], onDelete: Cascade)
+  warehouseId     String         @map("warehouse_id")
+  warehouseName   String?        @map("warehouse_name")
+  quantity        Int            @default(0)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  @@unique([listingId, warehouseId])
-  @@index([listingId])
+  @@index([ingramListingId])
+  @@index([synnexListingId])
+  @@index([dhListingId])
   @@map("warehouse_inventory")
 }
 
 model PriceHistory {
-  id            String             @id @default(cuid())
-  listingId     String             @map("listing_id")
-  listing       DistributorListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  costPrice     Int?               @map("cost_price")
-  retailPrice   Int?               @map("retail_price")
-  totalQuantity Int?               @map("total_quantity")
-  recordedAt    DateTime           @default(now()) @map("recorded_at")
+  id              String         @id @default(cuid())
+  ingramListingId String?        @map("ingram_listing_id")
+  ingramListing   IngramListing? @relation(fields: [ingramListingId], references: [id], onDelete: Cascade)
+  synnexListingId String?        @map("synnex_listing_id")
+  synnexListing   SynnexListing? @relation(fields: [synnexListingId], references: [id], onDelete: Cascade)
+  dhListingId     String?        @map("dh_listing_id")
+  dhListing       DhListing?     @relation(fields: [dhListingId], references: [id], onDelete: Cascade)
+  costPrice       BigInt?        @map("cost_price")
+  retailPrice     BigInt?        @map("retail_price")
+  totalQuantity   BigInt?        @map("total_quantity")
+  recordedAt      DateTime       @default(now()) @map("recorded_at")
 
-  @@index([listingId])
+  @@index([ingramListingId])
+  @@index([synnexListingId])
+  @@index([dhListingId])
   @@index([recordedAt])
   @@map("price_history")
 }
@@ -700,4 +920,25 @@ model ProductTier {
 
   @@index([tier])
   @@map("product_tiers")
+}
+
+model FtpSyncState {
+  id             String    @id @default(cuid())
+  distributor    String
+  feedType       String    @map("feed_type")
+  fileName       String?   @map("file_name")
+  fileSize       BigInt?   @map("file_size")
+  fileModified   DateTime? @map("file_modified")
+  lastRunAt      DateTime? @map("last_run_at")
+  lastStatus     String    @default("pending") @map("last_status")
+  itemsProcessed Int       @default(0) @map("items_processed")
+  itemsCreated   Int       @default(0) @map("items_created")
+  itemsUpdated   Int       @default(0) @map("items_updated")
+  itemsFailed    Int       @default(0) @map("items_failed")
+  errorMessage   String?   @map("error_message")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@unique([distributor, feedType])
+  @@map("ftp_sync_state")
 }

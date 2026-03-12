@@ -994,12 +994,14 @@ export async function getSyncJobs(limit = 20) {
 export async function getSyncStats() {
   const [
     totalSyncProducts,
-    totalListings,
+    totalListingsResult,
     unresolvedBrandsCount,
     lastJobs,
+    vendorCount,
+    inStockCount,
   ] = await Promise.all([
     prisma.syncProduct.count(),
-    prisma.distributorListing.count(),
+    prisma.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*) as count FROM unified_listings`,
     prisma.unresolvedBrand.count({ where: { resolutionStatus: "pending" } }),
     prisma.syncJob.findMany({
       where: { status: "completed" },
@@ -1008,7 +1010,29 @@ export async function getSyncStats() {
       distinct: ["distributor"],
       select: { distributor: true, completedAt: true, jobType: true },
     }),
+    prisma.vendor.count(),
+    prisma.syncProduct.count({
+      where: {
+        OR: [
+          { ingramListings: { some: { totalQuantity: { gt: 0 } } } },
+          { synnexListings: { some: { totalQuantity: { gt: 0 } } } },
+          { dhListings: { some: { totalQuantity: { gt: 0 } } } },
+        ],
+      },
+    }),
   ]);
+
+  const totalListings = Number(totalListingsResult[0]?.count ?? 0);
+
+  // Count products with 2+ distributor listings (cross-distributor coverage)
+  const multiDistResult = await prisma.$queryRaw<[{ count: bigint }]>`
+    SELECT COUNT(*) as count FROM (
+      SELECT sync_product_id FROM unified_listings
+      GROUP BY sync_product_id
+      HAVING COUNT(DISTINCT distributor) >= 2
+    ) sub
+  `;
+  const multiDistributorCount = Number(multiDistResult[0]?.count ?? 0);
 
   const lastSyncAt = lastJobs.length > 0
     ? lastJobs.reduce((latest, j) => {
@@ -1022,6 +1046,9 @@ export async function getSyncStats() {
     totalListings,
     unresolvedBrandsCount,
     lastSyncAt,
+    vendorCount,
+    inStockCount,
+    multiDistributorCount,
   };
 }
 
@@ -1049,20 +1076,23 @@ export async function getDiscoveredProducts(params: {
     where.vendor = { slug: vendor };
   }
 
+  const listingSelect = {
+    select: {
+      costPrice: true,
+      retailPrice: true,
+      sellPrice: true,
+      totalQuantity: true,
+    },
+  } as const;
+
   const [items, total] = await Promise.all([
     prisma.syncProduct.findMany({
       where,
       include: {
         vendor: { select: { name: true, slug: true } },
-        listings: {
-          select: {
-            distributor: true,
-            costPrice: true,
-            retailPrice: true,
-            sellPrice: true,
-            totalQuantity: true,
-          },
-        },
+        ingramListings: listingSelect,
+        synnexListings: listingSelect,
+        dhListings:     listingSelect,
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -1073,12 +1103,19 @@ export async function getDiscoveredProducts(params: {
 
   // Aggregate listing info per product
   const products = items.map((item) => {
-    const bestCost = item.listings.reduce((min, l) => {
+    const allListings = [
+      ...item.ingramListings,
+      ...item.synnexListings,
+      ...item.dhListings,
+    ];
+
+    const bestCost = allListings.reduce((min, l) => {
       if (l.costPrice === null) return min;
-      return min === null ? l.costPrice : Math.min(min, l.costPrice);
+      const cost = Number(l.costPrice);
+      return min === null ? cost : Math.min(min, cost);
     }, null as number | null);
 
-    const totalStock = item.listings.reduce((sum, l) => sum + l.totalQuantity, 0);
+    const totalStock = allListings.reduce((sum, l) => sum + Number(l.totalQuantity), 0);
 
     return {
       id: item.id,
@@ -1087,7 +1124,7 @@ export async function getDiscoveredProducts(params: {
       vendor: item.vendor.name,
       vendorSlug: item.vendor.slug,
       category: item.category,
-      listingCount: item.listings.length,
+      listingCount: allListings.length,
       bestCost,
       totalStock,
       importStatus: item.importStatus,
@@ -1099,19 +1136,25 @@ export async function getDiscoveredProducts(params: {
 }
 
 export async function getUnresolvedBrands(params: {
+  search?: string;
   page?: number;
   pageSize?: number;
 }) {
-  const { page = 1, pageSize = 25 } = params;
+  const { search, page = 1, pageSize = 25 } = params;
+
+  const where: Record<string, unknown> = { resolutionStatus: "pending" };
+  if (search) {
+    where.rawValue = { contains: search, mode: "insensitive" };
+  }
 
   const [items, total] = await Promise.all([
     prisma.unresolvedBrand.findMany({
-      where: { resolutionStatus: "pending" },
+      where,
       orderBy: [{ occurrenceCount: "desc" }, { createdAt: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    prisma.unresolvedBrand.count({ where: { resolutionStatus: "pending" } }),
+    prisma.unresolvedBrand.count({ where }),
   ]);
 
   // For items with suggestedVendorId, fetch vendor names
@@ -1142,4 +1185,166 @@ export async function getUnresolvedBrands(params: {
   }));
 
   return { brands, total };
+}
+
+// =============================================================================
+// VENDORS
+// =============================================================================
+
+export async function getTopVendors(limit = 100) {
+  const vendors = await prisma.vendor.findMany({
+    select: { id: true, name: true, slug: true },
+    orderBy: { name: "asc" },
+    take: limit,
+  });
+  return vendors;
+}
+
+export async function getVendors(params: {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+}) {
+  const { search, page = 1, pageSize = 50, sort = "products" } = params;
+
+  const where: Record<string, unknown> = {};
+  if (search) {
+    where.name = { contains: search, mode: "insensitive" };
+  }
+
+  const orderBy: Record<string, unknown> =
+    sort === "name"
+      ? { name: "asc" }
+      : sort === "listings"
+        ? { syncProducts: { _count: "desc" } }
+        : { syncProducts: { _count: "desc" } }; // default: products
+
+  const [items, total] = await Promise.all([
+    prisma.vendor.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        _count: {
+          select: {
+            syncProducts: true,
+            aliases: true,
+            distributorCodes: true,
+            products: true,
+          },
+        },
+        parent: { select: { name: true, slug: true } },
+      },
+    }),
+    prisma.vendor.count({ where }),
+  ]);
+
+  const vendors = items.map((v) => ({
+    id: v.id,
+    name: v.name,
+    slug: v.slug,
+    parentName: v.parent?.name ?? null,
+    parentSlug: v.parent?.slug ?? null,
+    syncProductCount: v._count.syncProducts,
+    productCount: v._count.products,
+    aliasCount: v._count.aliases,
+    mfgCodeCount: v._count.distributorCodes,
+  }));
+
+  return { vendors, total };
+}
+
+export async function getVendorBySlug(slug: string) {
+  const vendor = await prisma.vendor.findUnique({
+    where: { slug },
+    include: {
+      parent: { select: { name: true, slug: true } },
+      subBrands: { select: { name: true, slug: true }, orderBy: { name: "asc" } },
+      aliases: {
+        select: { id: true, alias: true, aliasNormalized: true, source: true, confidence: true, isVerified: true },
+        orderBy: { alias: "asc" },
+      },
+      distributorCodes: {
+        select: { id: true, distributor: true, code: true },
+        orderBy: [{ distributor: "asc" }, { code: "asc" }],
+      },
+      _count: {
+        select: {
+          syncProducts: true,
+          products: true,
+          aliases: true,
+          distributorCodes: true,
+        },
+      },
+    },
+  });
+
+  if (!vendor) return null;
+
+  // Get distributor breakdown via unified_listings VIEW
+  const distributorCounts = await prisma.$queryRaw<{ distributor: string; count: bigint }[]>`
+    SELECT ul.distributor, COUNT(*) as count
+    FROM unified_listings ul
+    JOIN sync_products sp ON sp.id = ul.sync_product_id
+    WHERE sp.vendor_id = ${vendor.id}
+    GROUP BY ul.distributor
+  `;
+
+  // Get top products by stock
+  const listingSelect = {
+    select: { totalQuantity: true, costPrice: true },
+  } as const;
+
+  const topProducts = await prisma.syncProduct.findMany({
+    where: { vendorId: vendor.id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    include: {
+      ingramListings: listingSelect,
+      synnexListings: listingSelect,
+      dhListings:     listingSelect,
+    },
+  });
+
+  return {
+    id: vendor.id,
+    name: vendor.name,
+    slug: vendor.slug,
+    website: vendor.website,
+    parentName: vendor.parent?.name ?? null,
+    parentSlug: vendor.parent?.slug ?? null,
+    subBrands: vendor.subBrands,
+    aliases: vendor.aliases,
+    mfgCodes: vendor.distributorCodes,
+    syncProductCount: vendor._count.syncProducts,
+    productCount: vendor._count.products,
+    aliasCount: vendor._count.aliases,
+    mfgCodeCount: vendor._count.distributorCodes,
+    distributorBreakdown: distributorCounts.map((d) => ({
+      distributor: d.distributor,
+      count: Number(d.count),
+    })),
+    topProducts: topProducts.map((p) => {
+      const allListings = [
+        ...p.ingramListings,
+        ...p.synnexListings,
+        ...p.dhListings,
+      ];
+      return {
+        id: p.id,
+        mpn: p.mpn,
+        name: p.name,
+        category: p.category,
+        totalStock: allListings.reduce((sum, l) => sum + Number(l.totalQuantity), 0),
+        bestCost: allListings.reduce((min, l) => {
+          if (l.costPrice === null) return min;
+          const cost = Number(l.costPrice);
+          return min === null ? cost : Math.min(min, cost);
+        }, null as number | null),
+        listingCount: allListings.length,
+      };
+    }),
+  };
 }
