@@ -72,6 +72,41 @@ async function main() {
     `  Vendors: ${sonicwall.name}, ${fortinet.name}, ${cisco.name}, ${paloAlto.name}, ${watchguard.name}, ${aruba.name}`
   );
 
+  // ── Manufacturer Aliases (bootstrap brand normalizer) ──
+  const vendorAliases = [
+    { vendor: sonicwall, aliases: ["SonicWall", "Sonic Wall", "SONICWALL"] },
+    { vendor: fortinet, aliases: ["Fortinet", "FORTINET", "FortiNet"] },
+    { vendor: cisco, aliases: ["Cisco", "CISCO", "Cisco Systems", "Cisco Meraki"] },
+    { vendor: paloAlto, aliases: ["Palo Alto Networks", "Palo Alto", "PALO ALTO", "PAN"] },
+    { vendor: watchguard, aliases: ["WatchGuard", "WATCHGUARD", "Watch Guard"] },
+    { vendor: aruba, aliases: ["Aruba Networks", "Aruba", "ARUBA", "HPE Aruba"] },
+  ];
+
+  for (const { vendor, aliases } of vendorAliases) {
+    for (const alias of aliases) {
+      const aliasNormalized = alias.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+      await prisma.manufacturerAlias.upsert({
+        where: {
+          aliasNormalized_source: {
+            aliasNormalized,
+            source: "seed",
+          },
+        },
+        update: {},
+        create: {
+          alias,
+          aliasNormalized,
+          source: "seed",
+          confidence: 1.0,
+          isVerified: true,
+          vendorId: vendor.id,
+        },
+      });
+    }
+  }
+
+  console.log(`  Manufacturer aliases: ${vendorAliases.reduce((n, v) => n + v.aliases.length, 0)} aliases seeded`);
+
   // ── Distributors ──
   const ingram = await prisma.distributor.upsert({
     where: { code: "INGRAM" },

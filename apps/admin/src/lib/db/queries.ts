@@ -979,3 +979,167 @@ export async function getInventoryStats() {
     outOfStockCount: outOfStock,
   };
 }
+
+// =============================================================================
+// SYNC
+// =============================================================================
+
+export async function getSyncJobs(limit = 20) {
+  return prisma.syncJob.findMany({
+    orderBy: { startedAt: "desc" },
+    take: limit,
+  });
+}
+
+export async function getSyncStats() {
+  const [
+    totalSyncProducts,
+    totalListings,
+    unresolvedBrandsCount,
+    lastJobs,
+  ] = await Promise.all([
+    prisma.syncProduct.count(),
+    prisma.distributorListing.count(),
+    prisma.unresolvedBrand.count({ where: { resolutionStatus: "pending" } }),
+    prisma.syncJob.findMany({
+      where: { status: "completed" },
+      orderBy: { completedAt: "desc" },
+      take: 3,
+      distinct: ["distributor"],
+      select: { distributor: true, completedAt: true, jobType: true },
+    }),
+  ]);
+
+  const lastSyncAt = lastJobs.length > 0
+    ? lastJobs.reduce((latest, j) => {
+        if (!j.completedAt) return latest;
+        return !latest || j.completedAt > latest ? j.completedAt : latest;
+      }, null as Date | null)
+    : null;
+
+  return {
+    totalSyncProducts,
+    totalListings,
+    unresolvedBrandsCount,
+    lastSyncAt,
+  };
+}
+
+export async function getDiscoveredProducts(params: {
+  search?: string;
+  vendor?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { search, vendor, status = "discovered", page = 1, pageSize = 25 } = params;
+
+  const where: Record<string, unknown> = {
+    importStatus: status,
+  };
+
+  if (search) {
+    where.OR = [
+      { mpn: { contains: search, mode: "insensitive" } },
+      { name: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  if (vendor) {
+    where.vendor = { slug: vendor };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.syncProduct.findMany({
+      where,
+      include: {
+        vendor: { select: { name: true, slug: true } },
+        listings: {
+          select: {
+            distributor: true,
+            costPrice: true,
+            retailPrice: true,
+            sellPrice: true,
+            totalQuantity: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.syncProduct.count({ where }),
+  ]);
+
+  // Aggregate listing info per product
+  const products = items.map((item) => {
+    const bestCost = item.listings.reduce((min, l) => {
+      if (l.costPrice === null) return min;
+      return min === null ? l.costPrice : Math.min(min, l.costPrice);
+    }, null as number | null);
+
+    const totalStock = item.listings.reduce((sum, l) => sum + l.totalQuantity, 0);
+
+    return {
+      id: item.id,
+      mpn: item.mpn,
+      name: item.name,
+      vendor: item.vendor.name,
+      vendorSlug: item.vendor.slug,
+      category: item.category,
+      listingCount: item.listings.length,
+      bestCost,
+      totalStock,
+      importStatus: item.importStatus,
+      createdAt: item.createdAt,
+    };
+  });
+
+  return { products, total };
+}
+
+export async function getUnresolvedBrands(params: {
+  page?: number;
+  pageSize?: number;
+}) {
+  const { page = 1, pageSize = 25 } = params;
+
+  const [items, total] = await Promise.all([
+    prisma.unresolvedBrand.findMany({
+      where: { resolutionStatus: "pending" },
+      orderBy: [{ occurrenceCount: "desc" }, { createdAt: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.unresolvedBrand.count({ where: { resolutionStatus: "pending" } }),
+  ]);
+
+  // For items with suggestedVendorId, fetch vendor names
+  const vendorIds = items
+    .map((i) => i.suggestedVendorId)
+    .filter((id): id is string => id !== null);
+
+  const vendors = vendorIds.length > 0
+    ? await prisma.vendor.findMany({
+        where: { id: { in: vendorIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+
+  const vendorMap = new Map(vendors.map((v) => [v.id, v.name]));
+
+  const brands = items.map((item) => ({
+    id: item.id,
+    rawValue: item.rawValue,
+    distributor: item.distributor,
+    valueType: item.valueType,
+    sampleMpn: item.sampleMpn,
+    sampleDescription: item.sampleDescription,
+    occurrenceCount: item.occurrenceCount,
+    suggestedVendorId: item.suggestedVendorId,
+    suggestedVendorName: item.suggestedVendorId ? vendorMap.get(item.suggestedVendorId) ?? null : null,
+    suggestionScore: item.suggestionScore,
+  }));
+
+  return { brands, total };
+}

@@ -2,6 +2,7 @@
 
 import { prisma } from "@var/database";
 import { OrderStatus, UserRole } from "@var/database";
+import { importSyncProduct } from "@var/sync";
 import { revalidatePath } from "next/cache";
 
 // =============================================================================
@@ -334,6 +335,166 @@ export async function inviteUserAction(email: string, role: string) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error inviting user";
+    return { success: false as const, error: message };
+  }
+}
+
+// =============================================================================
+// SYNC: TRIGGER SYNC
+// =============================================================================
+
+export async function triggerSyncAction(
+  type: "full_catalog" | "incremental",
+  tier?: "hot" | "standard" | "cold",
+) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const apiKey = process.env.SYNC_API_KEY;
+
+    if (!apiKey) {
+      return { success: false as const, error: "SYNC_API_KEY not configured" };
+    }
+
+    const endpoint =
+      type === "full_catalog"
+        ? `${baseUrl}/api/sync/full-catalog`
+        : `${baseUrl}/api/sync/incremental`;
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: type === "incremental" ? JSON.stringify({ tier: tier ?? "standard" }) : undefined,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      return { success: false as const, error: `Sync API returned ${res.status}: ${text}` };
+    }
+
+    revalidatePath("/sync");
+
+    return { success: true as const };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error triggering sync";
+    return { success: false as const, error: message };
+  }
+}
+
+// =============================================================================
+// SYNC: IMPORT SYNC PRODUCT
+// =============================================================================
+
+export async function importSyncProductAction(
+  syncProductId: string,
+  overrides?: { name?: string; sku?: string; brandSlugs?: string[] },
+) {
+  try {
+    const result = await importSyncProduct(syncProductId, overrides);
+
+    revalidatePath("/sync/products");
+    revalidatePath("/products");
+
+    return { success: true as const, productId: result.productId };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error importing product";
+    return { success: false as const, error: message };
+  }
+}
+
+// =============================================================================
+// SYNC: REJECT SYNC PRODUCT
+// =============================================================================
+
+export async function rejectSyncProductAction(syncProductId: string) {
+  try {
+    await prisma.syncProduct.update({
+      where: { id: syncProductId },
+      data: { importStatus: "rejected" },
+    });
+
+    revalidatePath("/sync/products");
+
+    return { success: true as const };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error rejecting product";
+    return { success: false as const, error: message };
+  }
+}
+
+// =============================================================================
+// SYNC: RESOLVE BRAND
+// =============================================================================
+
+export async function resolveBrandAction(
+  unresolvedBrandId: string,
+  vendorId: string,
+) {
+  try {
+    const brand = await prisma.unresolvedBrand.findUniqueOrThrow({
+      where: { id: unresolvedBrandId },
+    });
+
+    // Create a ManufacturerAlias for future auto-matching
+    const aliasNormalized = brand.rawValue
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    await prisma.manufacturerAlias.upsert({
+      where: {
+        aliasNormalized_source: {
+          aliasNormalized,
+          source: "manual",
+        },
+      },
+      update: { vendorId, confidence: 1.0, isVerified: true },
+      create: {
+        alias: brand.rawValue,
+        aliasNormalized,
+        source: "manual",
+        confidence: 1.0,
+        isVerified: true,
+        vendorId,
+      },
+    });
+
+    // If the brand also has a mfg code, create a DistributorMfgCode mapping
+    if (brand.valueType === "mfg_code") {
+      await prisma.distributorMfgCode.upsert({
+        where: {
+          distributor_code: {
+            distributor: brand.distributor,
+            code: brand.rawValue,
+          },
+        },
+        update: { vendorId },
+        create: {
+          distributor: brand.distributor,
+          code: brand.rawValue,
+          vendorId,
+        },
+      });
+    }
+
+    // Mark as resolved
+    await prisma.unresolvedBrand.update({
+      where: { id: unresolvedBrandId },
+      data: { resolutionStatus: "resolved" },
+    });
+
+    revalidatePath("/sync/brands");
+
+    return { success: true as const };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error resolving brand";
     return { success: false as const, error: message };
   }
 }

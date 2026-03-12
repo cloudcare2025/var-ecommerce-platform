@@ -198,7 +198,10 @@ model Vendor {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  products Product[]
+  products         Product[]
+  aliases          ManufacturerAlias[]
+  distributorCodes DistributorMfgCode[]
+  syncProducts     SyncProduct[]
 
   @@index([slug])
   @@map("vendors")
@@ -281,6 +284,7 @@ model Product {
   categoryMappings    CategoryProduct[]
   brandProducts       BrandProduct[]
   distributorProducts DistributorProduct[]
+  syncProducts        SyncProduct[]
 
   @@index([vendorId])
   @@index([sku])
@@ -517,4 +521,183 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// =============================================================================
+// SYNC INFRASTRUCTURE — Brand Normalization
+// =============================================================================
+
+model ManufacturerAlias {
+  id              String   @id @default(cuid())
+  alias           String
+  aliasNormalized String   @map("alias_normalized")
+  source          String   @default("seed") // seed | auto | manual
+  confidence      Float    @default(1.0)
+  isVerified      Boolean  @default(false) @map("is_verified")
+  vendorId        String   @map("vendor_id")
+  vendor          Vendor   @relation(fields: [vendorId], references: [id])
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([aliasNormalized, source])
+  @@index([vendorId])
+  @@index([aliasNormalized])
+  @@map("manufacturer_aliases")
+}
+
+model DistributorMfgCode {
+  id        String   @id @default(cuid())
+  distributor String
+  code      String
+  vendorId  String   @map("vendor_id")
+  vendor    Vendor   @relation(fields: [vendorId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([distributor, code])
+  @@index([vendorId])
+  @@map("distributor_mfg_codes")
+}
+
+model UnresolvedBrand {
+  id                  String   @id @default(cuid())
+  rawValue            String   @map("raw_value")
+  distributor         String
+  valueType           String   @map("value_type") // vendor_name | mfg_code
+  sampleMpn           String?  @map("sample_mpn")
+  sampleDescription   String?  @map("sample_description")
+  suggestedVendorId   String?  @map("suggested_vendor_id")
+  suggestionScore     Float?   @map("suggestion_score")
+  resolutionStatus    String   @default("pending") @map("resolution_status") // pending | resolved | rejected
+  occurrenceCount     Int      @default(1) @map("occurrence_count")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@unique([rawValue, distributor, valueType])
+  @@index([resolutionStatus])
+  @@index([distributor])
+  @@map("unresolved_brands")
+}
+
+// =============================================================================
+// SYNC INFRASTRUCTURE — Discovery Pool
+// =============================================================================
+
+model SyncProduct {
+  id           String   @id @default(cuid())
+  vendorId     String   @map("vendor_id")
+  vendor       Vendor   @relation(fields: [vendorId], references: [id])
+  mpn          String
+  name         String
+  slug         String?
+  description  String?
+  category     String?
+  isActive     Boolean  @default(true) @map("is_active")
+  importStatus String   @default("discovered") @map("import_status") // discovered | imported | rejected
+  productId    String?  @map("product_id")
+  product      Product? @relation(fields: [productId], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  listings DistributorListing[]
+  tier     ProductTier?
+
+  @@unique([vendorId, mpn])
+  @@index([vendorId])
+  @@index([mpn])
+  @@index([importStatus])
+  @@index([productId])
+  @@map("sync_products")
+}
+
+model DistributorListing {
+  id               String      @id @default(cuid())
+  syncProductId    String      @map("sync_product_id")
+  syncProduct      SyncProduct @relation(fields: [syncProductId], references: [id], onDelete: Cascade)
+  distributor      String
+  distributorSku   String      @map("distributor_sku")
+  vendorPartNumber String?     @map("vendor_part_number")
+  costPrice        Int?        @map("cost_price")
+  retailPrice      Int?        @map("retail_price")
+  sellPrice        Int?        @map("sell_price")
+  totalQuantity    Int         @default(0) @map("total_quantity")
+  rawVendorName    String?     @map("raw_vendor_name")
+  rawMfgCode       String?     @map("raw_mfg_code")
+  lastSyncedAt     DateTime?   @map("last_synced_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  warehouses   WarehouseInventory[]
+  priceHistory PriceHistory[]
+
+  @@unique([distributor, distributorSku])
+  @@index([syncProductId])
+  @@index([distributor])
+  @@index([lastSyncedAt])
+  @@map("distributor_listings")
+}
+
+model WarehouseInventory {
+  id            String             @id @default(cuid())
+  listingId     String             @map("listing_id")
+  listing       DistributorListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  warehouseId   String             @map("warehouse_id")
+  warehouseName String?            @map("warehouse_name")
+  quantity      Int                @default(0)
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@unique([listingId, warehouseId])
+  @@index([listingId])
+  @@map("warehouse_inventory")
+}
+
+model PriceHistory {
+  id            String             @id @default(cuid())
+  listingId     String             @map("listing_id")
+  listing       DistributorListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  costPrice     Int?               @map("cost_price")
+  retailPrice   Int?               @map("retail_price")
+  totalQuantity Int?               @map("total_quantity")
+  recordedAt    DateTime           @default(now()) @map("recorded_at")
+
+  @@index([listingId])
+  @@index([recordedAt])
+  @@map("price_history")
+}
+
+// =============================================================================
+// SYNC INFRASTRUCTURE — Job Tracking
+// =============================================================================
+
+model SyncJob {
+  id             String    @id @default(cuid())
+  jobType        String    @map("job_type") // full_catalog | incremental_pna | webhook_update
+  distributor    String?
+  status         String    @default("pending") // pending | running | completed | failed
+  itemsProcessed Int       @default(0) @map("items_processed")
+  itemsCreated   Int       @default(0) @map("items_created")
+  itemsUpdated   Int       @default(0) @map("items_updated")
+  itemsFailed    Int       @default(0) @map("items_failed")
+  errorLog       Json?     @map("error_log")
+  startedAt      DateTime  @default(now()) @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+
+  @@index([jobType])
+  @@index([status])
+  @@index([startedAt])
+  @@map("sync_jobs")
+}
+
+model ProductTier {
+  id            String      @id @default(cuid())
+  syncProductId String      @unique @map("sync_product_id")
+  syncProduct   SyncProduct @relation(fields: [syncProductId], references: [id], onDelete: Cascade)
+  tier          String      @default("standard") // hot | standard | cold
+  pageViews7d   Int         @default(0) @map("page_views_7d")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([tier])
+  @@map("product_tiers")
 }

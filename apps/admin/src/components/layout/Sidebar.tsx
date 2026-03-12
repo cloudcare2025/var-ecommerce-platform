@@ -18,6 +18,9 @@ import {
   ChevronRight,
   X,
   Shield,
+  RefreshCw,
+  Search,
+  Tag,
 } from "lucide-react";
 import { useSidebarStore } from "@/lib/store";
 
@@ -59,6 +62,9 @@ const navigation: NavGroupConfig[] = [
     items: [
       { label: "Inventory", href: "/inventory", icon: <Warehouse size={20} /> },
       { label: "Distributors", href: "/inventory?tab=distributors", icon: <Building2 size={20} /> },
+      { label: "Sync", href: "/sync", icon: <RefreshCw size={20} /> },
+      { label: "Product Discovery", href: "/sync/products", icon: <Search size={20} /> },
+      { label: "Brand Resolution", href: "/sync/brands", icon: <Tag size={20} /> },
     ],
   },
   {

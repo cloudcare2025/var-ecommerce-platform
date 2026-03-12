@@ -10,6 +10,7 @@ COPY package.json package-lock.json ./
 COPY apps/admin/package.json ./apps/admin/
 COPY packages/database/package.json ./packages/database/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/sync/package.json ./packages/sync/
 COPY packages/ui/package.json ./packages/ui/
 
 RUN npm ci
