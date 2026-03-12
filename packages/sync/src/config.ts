@@ -2,16 +2,25 @@
  * Centralized Configuration — Environment Variable Validation
  *
  * All FTP/SFTP/API credentials and sync-worker settings.
- * Throws at startup if required vars are missing.
+ * Uses lazy getters so env vars are validated on first access,
+ * not at import time (which breaks Next.js build-time page collection).
  */
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Is this a Next.js build-time page collection phase? */
+const isBuildPhase =
+  process.env.NEXT_PHASE === "phase-production-build" ||
+  (process.env.NODE_ENV === "production" && typeof window === "undefined" && !process.env.INGRAM_CLIENT_ID);
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) {
+    // During Next.js "Collecting page data", sync env vars aren't available.
+    // Return empty string so the build succeeds — runtime will have real values.
+    if (isBuildPhase) return "";
     throw new Error(`[config] Missing required environment variable: ${name}`);
   }
   return value;
