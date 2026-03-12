@@ -1,0 +1,208 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["sync"]
+}
+
+// ─── MANUFACTURERS ──────────────────────────────────────────────────────────
+
+model Manufacturer {
+  id            String   @id @default(uuid())
+  canonicalName String   @unique
+  slug          String   @unique
+  shortName     String?
+  parentId      String?
+  parent        Manufacturer?  @relation("SubBrands", fields: [parentId], references: [id])
+  children      Manufacturer[] @relation("SubBrands")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  aliases           ManufacturerAlias[]
+  distributorCodes  DistributorMfgCode[]
+  products          SyncProduct[]
+
+  @@map("manufacturers")
+  @@schema("sync")
+}
+
+model ManufacturerAlias {
+  id              String   @id @default(uuid())
+  alias           String
+  aliasNormalized String
+  source          String
+  confidence      Float    @default(1.0)
+  isVerified      Boolean  @default(false)
+  manufacturerId  String
+  manufacturer    Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@unique([aliasNormalized, source])
+  @@index([aliasNormalized])
+  @@map("manufacturer_aliases")
+  @@schema("sync")
+}
+
+model DistributorMfgCode {
+  id              String   @id @default(uuid())
+  distributor     String
+  code            String
+  manufacturerId  String
+  manufacturer    Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@unique([distributor, code])
+  @@map("distributor_mfg_codes")
+  @@schema("sync")
+}
+
+// ─── PRODUCTS ───────────────────────────────────────────────────────────────
+
+model SyncProduct {
+  id              String   @id @default(uuid())
+  manufacturerId  String
+  manufacturer    Manufacturer @relation(fields: [manufacturerId], references: [id])
+  mpn             String
+  name            String
+  slug            String   @unique
+  category        String?
+  description     String?
+  features        Json?
+  specs           Json?
+  image           String?
+  tagline         String?
+  series          String?
+  badge           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  listings        DistributorListing[]
+  tier            ProductTier?
+
+  @@unique([manufacturerId, mpn])
+  @@index([category])
+  @@index([slug])
+  @@map("sync_products")
+  @@schema("sync")
+}
+
+// ─── DISTRIBUTOR LISTINGS ───────────────────────────────────────────────────
+
+model DistributorListing {
+  id               String   @id @default(uuid())
+  productId        String
+  product          SyncProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  distributor      String
+  distributorSku   String
+  vendorPartNumber String?
+  costPrice        Int?
+  retailPrice      Int?
+  sellPrice        Int?
+  totalQuantity    Int      @default(0)
+  rawVendorName    String?
+  rawMfgCode       String?
+  lastSyncedAt     DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  warehouseInventory WarehouseInventory[]
+  priceHistory       PriceHistory[]
+
+  @@unique([distributor, distributorSku])
+  @@index([productId])
+  @@index([distributor, lastSyncedAt])
+  @@map("distributor_listings")
+  @@schema("sync")
+}
+
+model WarehouseInventory {
+  id            String   @id @default(uuid())
+  listingId     String
+  listing       DistributorListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  warehouseId   String
+  warehouseName String?
+  quantity      Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([listingId, warehouseId])
+  @@map("warehouse_inventory")
+  @@schema("sync")
+}
+
+// ─── PRICE HISTORY ──────────────────────────────────────────────────────────
+
+model PriceHistory {
+  id            String   @id @default(uuid())
+  listingId     String
+  listing       DistributorListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  costPrice     Int?
+  retailPrice   Int?
+  totalQuantity Int?
+  recordedAt    DateTime @default(now())
+
+  @@index([listingId, recordedAt(sort: Desc)])
+  @@map("price_history")
+  @@schema("sync")
+}
+
+// ─── SYNC JOBS ──────────────────────────────────────────────────────────────
+
+model SyncJob {
+  id              String   @id @default(uuid())
+  jobType         String
+  distributor     String?
+  status          String   @default("running")
+  itemsProcessed  Int      @default(0)
+  itemsCreated    Int      @default(0)
+  itemsUpdated    Int      @default(0)
+  itemsFailed     Int      @default(0)
+  errorLog        Json?
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  @@index([jobType, startedAt(sort: Desc)])
+  @@map("sync_jobs")
+  @@schema("sync")
+}
+
+// ─── UNRESOLVED BRANDS ──────────────────────────────────────────────────────
+
+model UnresolvedBrand {
+  id                      String   @id @default(uuid())
+  rawValue                String
+  distributor             String
+  valueType               String
+  sampleMpn               String?
+  sampleDescription       String?
+  suggestedManufacturerId String?
+  suggestionScore         Float?
+  resolutionStatus        String   @default("pending")
+  occurrenceCount         Int      @default(1)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([rawValue, distributor, valueType])
+  @@index([resolutionStatus])
+  @@map("unresolved_brands")
+  @@schema("sync")
+}
+
+// ─── PRODUCT TIERS ──────────────────────────────────────────────────────────
+
+model ProductTier {
+  id          String   @id @default(uuid())
+  productId   String   @unique
+  product     SyncProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tier        String   @default("standard")
+  pageViews7d Int      @default(0)
+  lastOrdered DateTime?
+  updatedAt   DateTime @updatedAt
+
+  @@index([tier])
+  @@map("product_tiers")
+  @@schema("sync")
+}
