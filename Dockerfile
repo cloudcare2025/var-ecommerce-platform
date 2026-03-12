@@ -12,7 +12,6 @@ FROM base AS prisma
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY prisma ./prisma
-COPY src/generated ./src/generated
 COPY prisma.config.ts ./
 COPY package.json ./
 RUN npx prisma generate
