@@ -1,5 +1,3 @@
-"use client";
-
 import {
   ShoppingCart,
   DollarSign,
@@ -13,7 +11,7 @@ import {
 import Link from "next/link";
 import StatCard from "@/components/dashboard/StatCard";
 import RecentOrders from "@/components/dashboard/RecentOrders";
-import { dashboardStats } from "@/lib/mock-data";
+import { getDashboardStats, getRecentOrders } from "@/lib/db/queries";
 import { formatPrice } from "@var/shared";
 
 const quickActions = [
@@ -47,7 +45,12 @@ const quickActions = [
   },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [stats, recentOrders] = await Promise.all([
+    getDashboardStats(),
+    getRecentOrders(5),
+  ]);
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -62,27 +65,27 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <StatCard
           label="Total Orders"
-          value={dashboardStats.totalOrders.toLocaleString()}
-          change={dashboardStats.totalOrdersChange}
+          value={stats.totalOrders.toLocaleString()}
+          change={stats.totalOrdersChange}
           icon={<ShoppingCart size={20} />}
         />
         <StatCard
           label="Revenue"
-          value={formatPrice(dashboardStats.revenueCents).replace("$", "")}
-          change={dashboardStats.revenueChange}
+          value={formatPrice(stats.revenueCents).replace("$", "")}
+          change={stats.revenueChange}
           icon={<DollarSign size={20} />}
           prefix="$"
         />
         <StatCard
           label="Active Products"
-          value={dashboardStats.activeProducts.toString()}
-          change={dashboardStats.activeProductsChange}
+          value={stats.activeProducts.toString()}
+          change={stats.activeProductsChange}
           icon={<Package size={20} />}
         />
         <StatCard
           label="Active Customers"
-          value={dashboardStats.activeCustomers.toString()}
-          change={dashboardStats.activeCustomersChange}
+          value={stats.activeCustomers.toString()}
+          change={stats.activeCustomersChange}
           icon={<Users size={20} />}
         />
       </div>
@@ -117,7 +120,7 @@ export default function DashboardPage() {
 
         {/* Recent orders */}
         <div className="xl:col-span-3">
-          <RecentOrders />
+          <RecentOrders orders={recentOrders} />
         </div>
       </div>
     </div>

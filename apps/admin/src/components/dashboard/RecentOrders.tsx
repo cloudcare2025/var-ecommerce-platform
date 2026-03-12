@@ -2,9 +2,21 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { mockOrders } from "@/lib/mock-data";
 import { formatPrice, ORDER_STATUSES } from "@var/shared";
 import type { OrderStatus } from "@var/shared";
+
+interface RecentOrdersProps {
+  orders: Array<{
+    id: string;
+    orderNumber: string;
+    customerName: string;
+    customerCompany: string;
+    brandSlug: string;
+    totalCents: number;
+    status: string;
+    createdAt: string;
+  }>;
+}
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   const config = ORDER_STATUSES[status];
@@ -30,11 +42,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
-export default function RecentOrders() {
-  const recentOrders = [...mockOrders]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
-
+export default function RecentOrders({ orders }: RecentOrdersProps) {
   return (
     <div className="bg-admin-card rounded-xl border border-admin-border">
       <div className="flex items-center justify-between px-6 py-4 border-b border-admin-border">
@@ -72,7 +80,7 @@ export default function RecentOrders() {
             </tr>
           </thead>
           <tbody>
-            {recentOrders.map((order) => (
+            {orders.map((order) => (
               <tr key={order.id} className="admin-table-row border-b border-admin-border last:border-0">
                 <td className="px-6 py-3">
                   <Link
@@ -95,7 +103,7 @@ export default function RecentOrders() {
                   </span>
                 </td>
                 <td className="px-6 py-3">
-                  <StatusBadge status={order.status} />
+                  <StatusBadge status={order.status as OrderStatus} />
                 </td>
                 <td className="px-6 py-3">
                   <span className="text-sm text-admin-text-muted whitespace-nowrap">

@@ -11,6 +11,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { BRAND_SLUGS } from "@var/shared";
+import { createProductAction } from "@/lib/db/actions";
 
 interface Feature {
   id: string;
@@ -72,10 +73,30 @@ export default function NewProductPage() {
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // In production, this POSTs to the API
-    alert("Product created successfully (demo mode)");
+    const formData = new FormData();
+    formData.set("name", name);
+    formData.set("slug", slug);
+    formData.set("sku", sku);
+    formData.set("mpn", mpn);
+    formData.set("description", description);
+    formData.set("vendor", vendor);
+    formData.set("category", category);
+    formData.set("costPrice", costPrice);
+    formData.set("sellPrice", sellPrice);
+    formData.set("compareAtPrice", compareAtPrice);
+    formData.set("stock", stock);
+    formData.set("lowStockThreshold", lowStockThreshold);
+    formData.set("status", status);
+    formData.set("selectedBrands", selectedBrands.join(","));
+
+    const result = await createProductAction(formData);
+    if (result.success) {
+      window.location.href = "/products";
+    } else {
+      alert(result.error || "Failed to create product");
+    }
   }
 
   return (

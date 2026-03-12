@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import {
   Globe,
@@ -9,10 +7,12 @@ import {
   ExternalLink,
   Store,
 } from "lucide-react";
-import { mockBrands } from "@/lib/mock-data";
+import { getBrands } from "@/lib/db/queries";
 import { formatPrice } from "@var/shared";
 
-export default function BrandsPage() {
+export default async function BrandsPage() {
+  const brands = await getBrands();
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -25,7 +25,7 @@ export default function BrandsPage() {
 
       {/* Brand cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {mockBrands.map((brand) => (
+        {brands.map((brand) => (
           <Link
             key={brand.slug}
             href={`/brands/${brand.slug}`}

@@ -1,6 +1,3 @@
-"use client";
-
-import { use } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -14,7 +11,7 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
-import { mockOrders } from "@/lib/mock-data";
+import { getOrderById } from "@/lib/db/queries";
 import { formatPrice, ORDER_STATUSES, PAYMENT_METHODS } from "@var/shared";
 import type { OrderStatus, PaymentMethod } from "@var/shared";
 
@@ -55,9 +52,9 @@ function TimelineIcon({ event }: { event: string }) {
   return <Clock size={14} />;
 }
 
-export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const order = mockOrders.find((o) => o.id === id);
+export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const order = await getOrderById(id);
 
   if (!order) {
     return (
@@ -99,7 +96,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <h1 className="text-2xl font-semibold text-admin-text">
                 {order.orderNumber}
               </h1>
-              <StatusBadge status={order.status} size="lg" />
+              <StatusBadge status={order.status as OrderStatus} size="lg" />
             </div>
             <p className="text-sm text-admin-text-muted mt-0.5">
               Placed on{" "}
@@ -140,7 +137,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <div className="bg-admin-card rounded-xl border border-admin-border">
             <div className="px-6 py-4 border-b border-admin-border">
               <h2 className="text-sm font-semibold text-admin-text">
-                Order Items ({order.items.reduce((sum, i) => sum + i.quantity, 0)} units)
+                Order Items ({order.items.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0)} units)
               </h2>
             </div>
             <div className="overflow-x-auto">
@@ -155,7 +152,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items.map((item, idx) => (
+                  {order.items.map((item: { name: string; sku: string; quantity: number; priceCents: number }, idx: number) => (
                     <tr key={idx} className="admin-table-row border-b border-admin-border last:border-0">
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-3">
@@ -212,36 +209,40 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* Addresses */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-admin-card rounded-xl border border-admin-border p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <MapPin size={16} className="text-admin-text-muted" />
-                <h3 className="text-sm font-semibold text-admin-text">Shipping Address</h3>
+            {order.shippingAddress && (
+              <div className="bg-admin-card rounded-xl border border-admin-border p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin size={16} className="text-admin-text-muted" />
+                  <h3 className="text-sm font-semibold text-admin-text">Shipping Address</h3>
+                </div>
+                <div className="text-sm text-admin-text leading-relaxed">
+                  <p>{(order.shippingAddress as Record<string, string>).line1}</p>
+                  {(order.shippingAddress as Record<string, string>).line2 && <p>{(order.shippingAddress as Record<string, string>).line2}</p>}
+                  <p>
+                    {(order.shippingAddress as Record<string, string>).city}, {(order.shippingAddress as Record<string, string>).state}{" "}
+                    {(order.shippingAddress as Record<string, string>).zip}
+                  </p>
+                  <p>{(order.shippingAddress as Record<string, string>).country}</p>
+                </div>
               </div>
-              <div className="text-sm text-admin-text leading-relaxed">
-                <p>{order.shippingAddress.line1}</p>
-                {order.shippingAddress.line2 && <p>{order.shippingAddress.line2}</p>}
-                <p>
-                  {order.shippingAddress.city}, {order.shippingAddress.state}{" "}
-                  {order.shippingAddress.zip}
-                </p>
-                <p>{order.shippingAddress.country}</p>
+            )}
+            {order.billingAddress && (
+              <div className="bg-admin-card rounded-xl border border-admin-border p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin size={16} className="text-admin-text-muted" />
+                  <h3 className="text-sm font-semibold text-admin-text">Billing Address</h3>
+                </div>
+                <div className="text-sm text-admin-text leading-relaxed">
+                  <p>{(order.billingAddress as Record<string, string>).line1}</p>
+                  {(order.billingAddress as Record<string, string>).line2 && <p>{(order.billingAddress as Record<string, string>).line2}</p>}
+                  <p>
+                    {(order.billingAddress as Record<string, string>).city}, {(order.billingAddress as Record<string, string>).state}{" "}
+                    {(order.billingAddress as Record<string, string>).zip}
+                  </p>
+                  <p>{(order.billingAddress as Record<string, string>).country}</p>
+                </div>
               </div>
-            </div>
-            <div className="bg-admin-card rounded-xl border border-admin-border p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <MapPin size={16} className="text-admin-text-muted" />
-                <h3 className="text-sm font-semibold text-admin-text">Billing Address</h3>
-              </div>
-              <div className="text-sm text-admin-text leading-relaxed">
-                <p>{order.billingAddress.line1}</p>
-                {order.billingAddress.line2 && <p>{order.billingAddress.line2}</p>}
-                <p>
-                  {order.billingAddress.city}, {order.billingAddress.state}{" "}
-                  {order.billingAddress.zip}
-                </p>
-                <p>{order.billingAddress.country}</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -254,7 +255,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <div className="w-10 h-10 rounded-full bg-admin-accent/10 flex items-center justify-center text-sm font-semibold text-admin-accent">
                 {order.customerName
                   .split(" ")
-                  .map((n) => n[0])
+                  .map((n: string) => n[0])
                   .join("")}
               </div>
               <div>
@@ -305,7 +306,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <h3 className="text-sm font-semibold text-admin-text">Notes</h3>
               </div>
               <div className="space-y-2">
-                {order.notes.map((note, idx) => (
+                {order.notes.map((note: string, idx: number) => (
                   <div
                     key={idx}
                     className="text-sm text-admin-text bg-slate-50 rounded-lg px-3 py-2"
@@ -324,7 +325,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <h3 className="text-sm font-semibold text-admin-text">Timeline</h3>
             </div>
             <div className="space-y-0">
-              {order.timeline.map((entry, idx) => (
+              {order.timeline.map((entry: { event: string; date: string; user: string }, idx: number) => (
                 <div key={idx} className="flex gap-3 pb-4 last:pb-0 relative">
                   {idx < order.timeline.length - 1 && (
                     <div className="absolute left-[11px] top-6 bottom-0 w-px bg-admin-border" />

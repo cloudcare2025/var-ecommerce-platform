@@ -28,7 +28,49 @@ async function main() {
     },
   });
 
-  console.log(`  Vendors: ${sonicwall.name}, ${fortinet.name}`);
+  const cisco = await prisma.vendor.upsert({
+    where: { slug: "cisco" },
+    update: {},
+    create: {
+      name: "Cisco",
+      slug: "cisco",
+      website: "https://www.cisco.com",
+    },
+  });
+
+  const paloAlto = await prisma.vendor.upsert({
+    where: { slug: "palo-alto" },
+    update: {},
+    create: {
+      name: "Palo Alto Networks",
+      slug: "palo-alto",
+      website: "https://www.paloaltonetworks.com",
+    },
+  });
+
+  const watchguard = await prisma.vendor.upsert({
+    where: { slug: "watchguard" },
+    update: {},
+    create: {
+      name: "WatchGuard",
+      slug: "watchguard",
+      website: "https://www.watchguard.com",
+    },
+  });
+
+  const aruba = await prisma.vendor.upsert({
+    where: { slug: "aruba" },
+    update: {},
+    create: {
+      name: "Aruba Networks",
+      slug: "aruba",
+      website: "https://www.arubanetworks.com",
+    },
+  });
+
+  console.log(
+    `  Vendors: ${sonicwall.name}, ${fortinet.name}, ${cisco.name}, ${paloAlto.name}, ${watchguard.name}, ${aruba.name}`
+  );
 
   // ── Distributors ──
   const ingram = await prisma.distributor.upsert({
@@ -51,7 +93,19 @@ async function main() {
     },
   });
 
-  console.log(`  Distributors: ${ingram.name}, ${synnex.name}`);
+  const dandh = await prisma.distributor.upsert({
+    where: { code: "DANDH" },
+    update: {},
+    create: {
+      name: "D&H",
+      code: "DANDH",
+      contactEmail: "orders@dandh.com",
+    },
+  });
+
+  console.log(
+    `  Distributors: ${ingram.name}, ${synnex.name}, ${dandh.name}`
+  );
 
   // ── Brands ──
   const sonicwallBrand = await prisma.brand.upsert({
@@ -123,7 +177,65 @@ async function main() {
     },
   });
 
-  console.log(`  Brands: ${sonicwallBrand.name}, ${fortinetBrand.name}`);
+  const paloAltoBrand = await prisma.brand.upsert({
+    where: { slug: "palo-alto" },
+    update: {},
+    create: {
+      name: "Palo Alto Networks",
+      slug: "palo-alto",
+      domain: "paloalto.a5it.com",
+      themeConfig: {
+        primary: "#FA582D",
+      },
+      isActive: true,
+    },
+  });
+
+  const ciscoBrand = await prisma.brand.upsert({
+    where: { slug: "cisco" },
+    update: {},
+    create: {
+      name: "Cisco",
+      slug: "cisco",
+      domain: "cisco.a5it.com",
+      themeConfig: {
+        primary: "#049FD9",
+      },
+      isActive: true,
+    },
+  });
+
+  const arubaBrand = await prisma.brand.upsert({
+    where: { slug: "aruba" },
+    update: {},
+    create: {
+      name: "Aruba Networks",
+      slug: "aruba",
+      domain: "aruba.a5it.com",
+      themeConfig: {
+        primary: "#FF8300",
+      },
+      isActive: true,
+    },
+  });
+
+  const watchguardBrand = await prisma.brand.upsert({
+    where: { slug: "watchguard" },
+    update: {},
+    create: {
+      name: "WatchGuard",
+      slug: "watchguard",
+      domain: "watchguard.a5it.com",
+      themeConfig: {
+        primary: "#C41230",
+      },
+      isActive: false,
+    },
+  });
+
+  console.log(
+    `  Brands: ${sonicwallBrand.name}, ${fortinetBrand.name}, ${paloAltoBrand.name}, ${ciscoBrand.name}, ${arubaBrand.name}, ${watchguardBrand.name}`
+  );
 
   // ── Categories ──
   const firewalls = await prisma.category.upsert({
@@ -204,8 +316,23 @@ async function main() {
     },
   });
 
+  const accessPoints = await prisma.category.upsert({
+    where: {
+      brandId_slug: { slug: "access-points", brandId: sonicwallBrand.id },
+    },
+    update: {},
+    create: {
+      name: "Access Points",
+      slug: "access-points",
+      description: "Wireless Access Points",
+      brandId: sonicwallBrand.id,
+      sortOrder: 6,
+      isActive: true,
+    },
+  });
+
   console.log(
-    `  Categories: ${firewalls.name}, ${switches.name}, ${cloudSecurity.name}, ${endpoint.name}, ${management.name}`
+    `  Categories: ${firewalls.name}, ${switches.name}, ${cloudSecurity.name}, ${endpoint.name}, ${management.name}, ${accessPoints.name}`
   );
 
   // ── Products ──
@@ -650,7 +777,87 @@ async function main() {
     },
   });
 
-  console.log(`  Admin user: ${adminUser.email}`);
+  const nickAdmin = await prisma.user.upsert({
+    where: { email: "nick@a5it.com" },
+    update: {},
+    create: {
+      email: "nick@a5it.com",
+      name: "Nick Pitzaferro",
+      passwordHash:
+        "$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
+      role: "SUPER_ADMIN",
+      isActive: true,
+    },
+  });
+
+  const lisaAdmin = await prisma.user.upsert({
+    where: { email: "lisa@a5it.com" },
+    update: {},
+    create: {
+      email: "lisa@a5it.com",
+      name: "Lisa Park",
+      passwordHash:
+        "$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
+      role: "SUPER_ADMIN",
+      isActive: true,
+    },
+  });
+
+  const jakeAdmin = await prisma.user.upsert({
+    where: { email: "jake@a5it.com" },
+    update: {},
+    create: {
+      email: "jake@a5it.com",
+      name: "Jake Morrison",
+      passwordHash:
+        "$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
+      role: "ADMIN",
+      isActive: true,
+    },
+  });
+
+  const emilyAdmin = await prisma.user.upsert({
+    where: { email: "emily@a5it.com" },
+    update: {},
+    create: {
+      email: "emily@a5it.com",
+      name: "Emily Tran",
+      passwordHash:
+        "$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
+      role: "MANAGER",
+      isActive: true,
+    },
+  });
+
+  const carlosAdmin = await prisma.user.upsert({
+    where: { email: "carlos@a5it.com" },
+    update: {},
+    create: {
+      email: "carlos@a5it.com",
+      name: "Carlos Mendoza",
+      passwordHash:
+        "$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
+      role: "VIEWER",
+      isActive: true,
+    },
+  });
+
+  const aishaAdmin = await prisma.user.upsert({
+    where: { email: "aisha@a5it.com" },
+    update: {},
+    create: {
+      email: "aisha@a5it.com",
+      name: "Aisha Johnson",
+      passwordHash:
+        "$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
+      role: "MANAGER",
+      isActive: true,
+    },
+  });
+
+  console.log(
+    `  Admin users: ${adminUser.email}, ${nickAdmin.email}, ${lisaAdmin.email}, ${jakeAdmin.email}, ${emilyAdmin.email}, ${carlosAdmin.email}, ${aishaAdmin.email}`
+  );
 
   console.log("\nSeed complete.");
 }
