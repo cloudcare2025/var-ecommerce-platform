@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getCustomers, getCustomerStats } from "@/lib/db/queries";
 import CustomersClient from "./customers-client";
 

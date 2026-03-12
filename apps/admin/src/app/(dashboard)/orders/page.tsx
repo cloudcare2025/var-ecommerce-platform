@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getOrders, getOrderStatusCounts } from "@/lib/db/queries";
 import OrdersClient from "./orders-client";
 

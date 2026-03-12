@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { ArrowLeft, Globe } from "lucide-react";
 import { getBrandBySlug } from "@/lib/db/queries";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getInventory, getInventoryStats } from "@/lib/db/queries";
 import InventoryClient from "./inventory-client";
 

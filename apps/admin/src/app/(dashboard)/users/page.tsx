@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getUsers, getRoleCounts } from "@/lib/db/queries";
 import UsersClient from "./users-client";
 
