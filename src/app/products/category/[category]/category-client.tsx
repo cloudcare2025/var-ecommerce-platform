@@ -48,11 +48,20 @@ const categoryHeroes: Record<
   },
 };
 
+/** DB-sourced hero content passed from the server component */
+export interface CategoryHeroContent {
+  headline: string | null;
+  description: string | null;
+  gradient: string | null;
+}
+
 interface CategoryClientProps {
   categoryId: string;
   products: Product[];
   category: (typeof categoriesData)[number] | undefined;
   categories: typeof categoriesData;
+  /** Optional hero content from DB Category model — overrides hardcoded heroes */
+  heroContent?: CategoryHeroContent | null;
 }
 
 export function CategoryClient({
@@ -60,8 +69,15 @@ export function CategoryClient({
   products,
   category,
   categories,
+  heroContent,
 }: CategoryClientProps) {
-  const hero = categoryHeroes[categoryId];
+  // DB content takes priority, then hardcoded fallback
+  const staticHero = categoryHeroes[categoryId];
+  const hero = {
+    headline: heroContent?.headline || staticHero?.headline,
+    description: heroContent?.description || staticHero?.description,
+    gradient: heroContent?.gradient || staticHero?.gradient,
+  };
 
   if (!category) {
     return (

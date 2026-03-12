@@ -5,7 +5,239 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["sync"]
+  schemas  = ["sync", "public"]
+}
+
+// =============================================================================
+// ENUMS (public schema)
+// =============================================================================
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@schema("public")
+}
+
+// =============================================================================
+// BRAND (multi-tenant storefronts — public schema, read-only from storefront)
+// =============================================================================
+
+model Brand {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  domain          String?
+  logoUrl         String?  @map("logo_url")
+  faviconUrl      String?  @map("favicon_url")
+  themeConfig     Json?    @map("theme_config")
+  metaTitle       String?  @map("meta_title")
+  metaDescription String?  @map("meta_description")
+  ogImage         String?  @map("og_image")
+  settings        Json?
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  categories      Category[]
+  brandProducts   BrandProduct[]
+  pageContent     PageContent[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("brands")
+  @@schema("public")
+}
+
+// =============================================================================
+// CATEGORY (hierarchical, brand-scoped — public schema)
+// =============================================================================
+
+model Category {
+  id              String     @id @default(cuid())
+  brandId         String     @map("brand_id")
+  brand           Brand      @relation(fields: [brandId], references: [id])
+  name            String
+  slug            String
+  description     String?
+  image           String?
+  parentId        String?    @map("parent_id")
+  parent          Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children        Category[] @relation("CategoryHierarchy")
+  sortOrder       Int        @default(0) @map("sort_order")
+  isActive        Boolean    @default(true) @map("is_active")
+
+  // ── CONTENT & SEO ──
+  heroHeadline    String?    @map("hero_headline")
+  heroDescription String?    @map("hero_description")
+  heroGradient    String?    @map("hero_gradient")
+  metaTitle       String?    @map("meta_title")
+  metaDescription String?    @map("meta_description")
+  ogImage         String?    @map("og_image")
+  schemaOrg       Json?      @map("schema_org")
+
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  @@unique([brandId, slug])
+  @@index([brandId])
+  @@index([slug])
+  @@index([parentId])
+  @@index([isActive])
+  @@map("categories")
+  @@schema("public")
+}
+
+// =============================================================================
+// BRAND PRODUCT (maps products to brands with brand-specific overrides)
+// =============================================================================
+
+model BrandProduct {
+  id         String   @id @default(cuid())
+  brandId    String   @map("brand_id")
+  brand      Brand    @relation(fields: [brandId], references: [id])
+  productId  String   @map("product_id")
+  price      Int?
+  isActive   Boolean  @default(true) @map("is_active")
+  isFeatured Boolean  @default(false) @map("is_featured")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  content ProductContent?
+
+  @@unique([brandId, productId])
+  @@index([brandId])
+  @@index([productId])
+  @@index([isActive, isFeatured])
+  @@map("brand_products")
+  @@schema("public")
+}
+
+// =============================================================================
+// PRODUCT CONTENT (brand-product-level marketing, SEO, and display overrides)
+// =============================================================================
+
+model ProductContent {
+  id               String        @id @default(cuid())
+  brandProductId   String        @unique @map("brand_product_id")
+  brandProduct     BrandProduct  @relation(fields: [brandProductId], references: [id], onDelete: Cascade)
+
+  // ── DISPLAY OVERRIDES ──
+  displayName      String?       @map("display_name")
+  tagline          String?
+  series           String?
+  badge            String?
+
+  // ── MARKETING COPY ──
+  shortDescription String?       @map("short_description")
+  longDescription  String?       @map("long_description")
+  bulletPoints     Json?         @map("bullet_points")
+  highlights       Json?
+
+  // ── SPECIFICATIONS ──
+  specs            Json?
+  techSpecs        Json?         @map("tech_specs")
+
+  // ── IMAGES ──
+  heroImage        String?       @map("hero_image")
+  heroImageAlt     String?       @map("hero_image_alt")
+  galleryImages    Json?         @map("gallery_images")
+  videoUrl         String?       @map("video_url")
+  videoThumbnail   String?       @map("video_thumbnail")
+
+  // ── SEO: META TAGS ──
+  metaTitle        String?       @map("meta_title")
+  metaDescription  String?       @map("meta_description")
+  ogTitle          String?       @map("og_title")
+  ogDescription    String?       @map("og_description")
+  ogImage          String?       @map("og_image")
+  twitterTitle     String?       @map("twitter_title")
+  twitterDescription String?     @map("twitter_description")
+  twitterImage     String?       @map("twitter_image")
+  canonicalUrl     String?       @map("canonical_url")
+
+  // ── SEO: STRUCTURED DATA (JSON-LD) ──
+  schemaOrg        Json?         @map("schema_org")
+
+  // ── SEO: SEARCH & DISCOVERY ──
+  searchKeywords   String[]      @map("search_keywords")
+  slug             String?
+  breadcrumbLabel  String?       @map("breadcrumb_label")
+  robotsMeta       String?       @map("robots_meta")
+
+  // ── SEO: RICH SNIPPETS ──
+  faqContent       Json?         @map("faq_content")
+  comparisonData   Json?         @map("comparison_data")
+  reviewSummary    Json?         @map("review_summary")
+
+  // ── SEO: INTERNAL LINKING ──
+  relatedSlugs     String[]      @map("related_slugs")
+  crossSellSlugs   String[]      @map("cross_sell_slugs")
+  upSellSlugs      String[]      @map("up_sell_slugs")
+
+  // ── CATEGORIZATION ──
+  categoryPath     String?       @map("category_path")
+  tags             String[]
+  audience         String[]
+
+  // ── PUBLISHING ──
+  status           ContentStatus @default(DRAFT)
+  publishedAt      DateTime?     @map("published_at")
+
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([slug])
+  @@index([series])
+  @@map("product_content")
+  @@schema("public")
+}
+
+// =============================================================================
+// PAGE CONTENT (brand-level page sections — heroes, banners, CTAs)
+// =============================================================================
+
+model PageContent {
+  id               String        @id @default(cuid())
+  brandId          String        @map("brand_id")
+  brand            Brand         @relation(fields: [brandId], references: [id])
+
+  pageSlug         String        @map("page_slug")
+  placement        String
+  sortOrder        Int           @default(0) @map("sort_order")
+
+  title            String?
+  subtitle         String?
+  eyebrow          String?
+  body             String?
+  image            String?
+  imageAlt         String?       @map("image_alt")
+  ctaText          String?       @map("cta_text")
+  ctaLink          String?       @map("cta_link")
+  secondaryCtaText String?       @map("secondary_cta_text")
+  secondaryCtaLink String?       @map("secondary_cta_link")
+
+  data             Json?
+
+  metaTitle        String?       @map("meta_title")
+  metaDescription  String?       @map("meta_description")
+  ogImage          String?       @map("og_image")
+  schemaOrg        Json?         @map("schema_org")
+
+  status           ContentStatus @default(DRAFT)
+  publishedAt      DateTime?     @map("published_at")
+
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@unique([brandId, pageSlug, placement])
+  @@index([brandId, pageSlug])
+  @@index([status])
+  @@map("page_content")
+  @@schema("public")
 }
 
 // ─── MANUFACTURERS ──────────────────────────────────────────────────────────
