@@ -1,9 +1,6 @@
 import { MetadataRoute } from "next";
 import { prisma } from "@/lib/db/client";
-import {
-  products as staticProducts,
-  categories as staticCategories,
-} from "@/data/products";
+import { VALID_CATEGORIES } from "@/lib/db/products";
 
 const BASE_URL = "https://storefront-sonicwall-production.up.railway.app";
 
@@ -28,49 +25,63 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${BASE_URL}/contact`,
       lastModified: now,
       changeFrequency: "monthly",
-      priority: 0.7,
+      priority: 0.5,
     },
   ];
 
-  // ── Category pages ───────────────────────────────────────────────────────
-  const categoryPages: MetadataRoute.Sitemap = staticCategories.map((cat) => ({
-    url: `${BASE_URL}/products/category/${cat.id}`,
-    lastModified: now,
-    changeFrequency: "weekly" as const,
-    priority: 0.8,
-  }));
-
-  // ── Product pages (try DB first, fall back to static) ────────────────────
-  let productPages: MetadataRoute.Sitemap;
+  // ── Category pages (12 categories from DB, fallback to constant) ───────
+  let categoryPages: MetadataRoute.Sitemap;
 
   try {
-    const dbProducts = await prisma.syncProduct.findMany({
-      where: { isActive: true, slug: { not: undefined } },
+    const dbCategories = await prisma.category.findMany({
+      where: { isActive: true },
       select: { slug: true, updatedAt: true },
     });
 
-    if (dbProducts.length > 0) {
-      productPages = dbProducts.map((p) => ({
-        url: `${BASE_URL}/products/${p.slug}`,
-        lastModified: p.updatedAt,
-        changeFrequency: "weekly" as const,
+    if (dbCategories.length > 0) {
+      categoryPages = dbCategories.map((cat) => ({
+        url: `${BASE_URL}/products/category/${cat.slug}`,
+        lastModified: cat.updatedAt,
+        changeFrequency: "daily" as const,
         priority: 0.8,
       }));
     } else {
-      productPages = staticProducts.map((p) => ({
-        url: `${BASE_URL}/products/${p.slug}`,
+      categoryPages = VALID_CATEGORIES.map((slug) => ({
+        url: `${BASE_URL}/products/category/${slug}`,
         lastModified: now,
-        changeFrequency: "weekly" as const,
+        changeFrequency: "daily" as const,
         priority: 0.8,
       }));
     }
   } catch {
-    productPages = staticProducts.map((p) => ({
-      url: `${BASE_URL}/products/${p.slug}`,
+    categoryPages = VALID_CATEGORIES.map((slug) => ({
+      url: `${BASE_URL}/products/category/${slug}`,
       lastModified: now,
-      changeFrequency: "weekly" as const,
+      changeFrequency: "daily" as const,
       priority: 0.8,
     }));
+  }
+
+  // ── Product pages from DB ─────────────────────────────────────────────
+  let productPages: MetadataRoute.Sitemap = [];
+
+  try {
+    const dbProducts = await prisma.syncProduct.findMany({
+      where: { isActive: true },
+      select: { slug: true, updatedAt: true },
+    });
+
+    productPages = dbProducts
+      .filter((p) => p.slug)
+      .map((p) => ({
+        url: `${BASE_URL}/products/${p.slug}`,
+        lastModified: p.updatedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.6,
+      }));
+  } catch {
+    // DB unavailable — return empty product pages
+    productPages = [];
   }
 
   return [...staticPages, ...categoryPages, ...productPages];

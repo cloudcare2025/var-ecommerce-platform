@@ -1,12 +1,8 @@
-"use client";
+import { getFeaturedProducts } from "@/lib/db/products";
+import { FeaturedProductsGrid } from "./FeaturedProductsGrid";
 
-import { products } from "@/data/products";
-import { ProductCard } from "./ProductCard";
-
-export function FeaturedProducts() {
-  const featured = products.filter((p) =>
-    ["tz80", "nsa-series", "cloud-secure-edge", "sws-14-48fpoe"].includes(p.id)
-  );
+export async function FeaturedProducts() {
+  const featured = await getFeaturedProducts(8);
 
   return (
     <section className="py-20 bg-white">
@@ -22,11 +18,13 @@ export function FeaturedProducts() {
             Enterprise-grade cybersecurity solutions for organizations of every size.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featured.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {featured.length > 0 ? (
+          <FeaturedProductsGrid products={featured} />
+        ) : (
+          <p className="text-center text-gray-400 py-12">
+            Featured products coming soon.
+          </p>
+        )}
       </div>
     </section>
   );

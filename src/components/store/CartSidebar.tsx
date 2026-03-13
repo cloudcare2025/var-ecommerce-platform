@@ -101,7 +101,7 @@ export function CartSidebar() {
                         </button>
                       </div>
                       <p className="font-heading text-base font-bold">
-                        {formatPrice(item.product.price * item.quantity)}
+                        {formatPrice(item.product.msrp * item.quantity)}
                       </p>
                     </div>
                   </div>

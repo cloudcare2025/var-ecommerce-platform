@@ -1,25 +1,30 @@
 import { prisma } from "@/lib/db/client";
 import { ContentStatus } from "@/generated/prisma/enums";
-import {
-  products as staticProducts,
-  getProductBySlug as staticGetBySlug,
-  getProductsByCategory as staticGetByCategory,
-} from "@/data/products";
-import type { Product, ProductCategory } from "@/types";
+import type {
+  Product,
+  ProductWithContent,
+  ProductCategory,
+  PaginatedProducts,
+  CategoryInfo,
+} from "@/types";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const BRAND_SLUG = "sonicwall";
 
-const VALID_CATEGORIES: ProductCategory[] = [
+export const VALID_CATEGORIES: ProductCategory[] = [
   "firewalls",
   "switches",
   "access-points",
+  "security-subscriptions",
+  "support-contracts",
+  "licenses",
   "cloud-security",
   "endpoint",
-  "email-security",
   "management",
-  "services",
+  "accessories",
+  "power-supplies",
+  "email-security",
 ];
 
 // ─── TYPE GUARDS ──────────────────────────────────────────────────────────────
@@ -28,162 +33,7 @@ function isValidCategory(value: string | null | undefined): value is ProductCate
   return typeof value === "string" && VALID_CATEGORIES.includes(value as ProductCategory);
 }
 
-// ─── SYNC PRODUCT MAPPER ─────────────────────────────────────────────────────
-// Maps SyncProduct (sync schema) to the storefront Product interface.
-// This is the existing path: direct sync data with distributor pricing.
-
-function mapSyncProductToProduct(
-  dbProduct: {
-    id: string;
-    name: string;
-    slug: string;
-    category: string | null;
-    tagline: string | null;
-    description: string | null;
-    image: string | null;
-    features: unknown;
-    specs: unknown;
-    badge: string | null;
-    series: string | null;
-    listings?: {
-      sellPrice: number | null;
-    }[];
-  },
-): Product {
-  // Best price: lowest non-null sellPrice from distributor listings
-  let price = 0;
-  if (dbProduct.listings && dbProduct.listings.length > 0) {
-    const validPrices = dbProduct.listings
-      .map((l) => l.sellPrice)
-      .filter((p): p is number => p !== null && p > 0);
-    if (validPrices.length > 0) {
-      price = Math.min(...validPrices);
-    }
-  }
-
-  // Parse features: expect JSON array of strings
-  let features: string[] = [];
-  if (Array.isArray(dbProduct.features)) {
-    features = dbProduct.features.filter(
-      (f): f is string => typeof f === "string",
-    );
-  }
-
-  // Parse specs: expect JSON object with string values
-  let specs: Record<string, string> | undefined;
-  if (
-    dbProduct.specs &&
-    typeof dbProduct.specs === "object" &&
-    !Array.isArray(dbProduct.specs)
-  ) {
-    const raw = dbProduct.specs as Record<string, unknown>;
-    const parsed: Record<string, string> = {};
-    let hasEntries = false;
-    for (const [key, value] of Object.entries(raw)) {
-      if (typeof value === "string") {
-        parsed[key] = value;
-        hasEntries = true;
-      }
-    }
-    if (hasEntries) {
-      specs = parsed;
-    }
-  }
-
-  return {
-    id: dbProduct.id,
-    name: dbProduct.name,
-    slug: dbProduct.slug,
-    category: isValidCategory(dbProduct.category) ? dbProduct.category : "firewalls",
-    tagline: dbProduct.tagline ?? "",
-    description: dbProduct.description ?? "",
-    image: dbProduct.image ?? "/images/products/placeholder.png",
-    price,
-    features,
-    specs,
-    badge: dbProduct.badge ?? undefined,
-    series: dbProduct.series ?? undefined,
-  };
-}
-
-// ─── BRAND PRODUCT + CONTENT MAPPER ──────────────────────────────────────────
-// Maps BrandProduct (with optional ProductContent) to the storefront Product
-// interface. When PUBLISHED content exists, its fields override the base product.
-
-type BrandProductWithContent = {
-  id: string;
-  productId: string;
-  price: number | null;
-  isActive: boolean;
-  content: {
-    displayName: string | null;
-    tagline: string | null;
-    series: string | null;
-    badge: string | null;
-    shortDescription: string | null;
-    bulletPoints: unknown;
-    specs: unknown;
-    heroImage: string | null;
-    slug: string | null;
-    categoryPath: string | null;
-    status: string;
-  } | null;
-};
-
-function mapBrandProductToProduct(
-  bp: BrandProductWithContent,
-  syncProduct: {
-    id: string;
-    name: string;
-    slug: string;
-    category: string | null;
-    tagline: string | null;
-    description: string | null;
-    image: string | null;
-    features: unknown;
-    specs: unknown;
-    badge: string | null;
-    series: string | null;
-    listings?: { sellPrice: number | null }[];
-  },
-): Product {
-  // Start from the sync product base
-  const base = mapSyncProductToProduct(syncProduct);
-
-  // If there is no PUBLISHED content, return the base as-is
-  const content = bp.content;
-  if (!content || content.status !== ContentStatus.PUBLISHED) {
-    // Apply brand-level price override if present
-    if (bp.price !== null) {
-      base.price = bp.price;
-    }
-    return base;
-  }
-
-  // Merge PUBLISHED content fields as overrides
-  const mergedFeatures = parseStringArray(content.bulletPoints) ?? base.features;
-  const mergedSpecs = parseSpecsObject(content.specs) ?? base.specs;
-  const categoryFromPath = content.categoryPath
-    ? extractCategoryFromPath(content.categoryPath)
-    : null;
-
-  return {
-    id: base.id,
-    slug: content.slug || base.slug,
-    name: content.displayName || base.name,
-    tagline: content.tagline || base.tagline,
-    description: content.shortDescription || base.description,
-    category: isValidCategory(categoryFromPath) ? categoryFromPath : base.category,
-    image: content.heroImage || base.image,
-    price: bp.price !== null ? bp.price : base.price,
-    features: mergedFeatures,
-    specs: mergedSpecs,
-    badge: content.badge ?? base.badge,
-    series: content.series ?? base.series,
-  };
-}
-
-// ─── PARSING HELPERS ──────────────────────────────────────────────────────────
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function parseStringArray(value: unknown): string[] | null {
   if (Array.isArray(value)) {
@@ -209,351 +59,680 @@ function parseSpecsObject(value: unknown): Record<string, string> | undefined {
   return undefined;
 }
 
+function parseFaqContent(value: unknown): { question: string; answer: string }[] | null {
+  if (Array.isArray(value)) {
+    const faqs = value.filter(
+      (v): v is { question: string; answer: string } =>
+        typeof v === "object" &&
+        v !== null &&
+        typeof (v as Record<string, unknown>).question === "string" &&
+        typeof (v as Record<string, unknown>).answer === "string",
+    );
+    return faqs.length > 0 ? faqs : null;
+  }
+  return null;
+}
+
 function extractCategoryFromPath(path: string): string | null {
-  // categoryPath is like "firewalls" or "firewalls/enterprise"
-  // We extract the root segment
   const segments = path.split("/").filter(Boolean);
   return segments.length > 0 ? segments[0] : null;
 }
 
-// =============================================================================
-// PUBLIC API — Product Queries
-// =============================================================================
+// ─── SYNC PRODUCT MAPPER ─────────────────────────────────────────────────────
 
-/**
- * Get all active products with best pricing from distributor listings.
- * Attempts to layer BrandProduct + ProductContent overrides on top.
- * Falls back to static product data on any DB error.
- */
-export async function getProducts(): Promise<Product[]> {
-  try {
-    const dbProducts = await prisma.syncProduct.findMany({
-      where: { isActive: true },
-      include: {
-        manufacturer: true,
-        listings: {
-          where: { totalQuantity: { gt: 0 } },
-          orderBy: { sellPrice: "asc" },
-        },
-      },
-    });
+type SyncProductRow = {
+  id: string;
+  mpn: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  description: string | null;
+  image: string | null;
+  tagline: string | null;
+  series: string | null;
+  badge: string | null;
+  features: unknown;
+  specs: unknown;
+  isActive: boolean;
+  listings: {
+    retailPrice: number | null;
+    sellPrice: number | null;
+    totalQuantity: number;
+    warehouseInventory?: { quantity: number }[];
+  }[];
+};
 
-    if (dbProducts.length === 0) {
-      return staticProducts;
-    }
-
-    // Fetch brand product content overrides for all products in one query
-    const brandProducts = await fetchBrandProducts();
-
-    // Index brand products by productId for O(1) lookup
-    const bpByProductId = new Map<string, BrandProductWithContent>();
-    for (const bp of brandProducts) {
-      bpByProductId.set(bp.productId, bp);
-    }
-
-    return dbProducts.map((sp) => {
-      const bp = bpByProductId.get(sp.id);
-      if (bp) {
-        return mapBrandProductToProduct(bp, sp);
-      }
-      return mapSyncProductToProduct(sp);
-    });
-  } catch {
-    return staticProducts;
+function mapSyncProduct(sp: SyncProductRow): Product {
+  // MSRP = max retailPrice across all distributor listings (take highest to show MSRP)
+  let msrp = 0;
+  const retailPrices = sp.listings
+    .map((l) => l.retailPrice)
+    .filter((p): p is number => p !== null && p > 0);
+  if (retailPrices.length > 0) {
+    msrp = Math.max(...retailPrices);
   }
+
+  // Stock = sum of totalQuantity across all listings
+  const stockQuantity = sp.listings.reduce((sum, l) => sum + (l.totalQuantity ?? 0), 0);
+
+  const features = parseStringArray(sp.features) ?? [];
+  const specs = parseSpecsObject(sp.specs);
+
+  return {
+    id: sp.id,
+    name: sp.name,
+    slug: sp.slug,
+    category: isValidCategory(sp.category) ? sp.category : "firewalls",
+    tagline: sp.tagline ?? "",
+    description: sp.description ?? "",
+    image: sp.image ?? "/images/products/placeholder.png",
+    msrp,
+    features,
+    specs,
+    badge: sp.badge ?? undefined,
+    series: sp.series ?? undefined,
+    mpn: sp.mpn,
+    inStock: stockQuantity > 0,
+    stockQuantity,
+  };
+}
+
+// ─── BRAND PRODUCT + CONTENT OVERLAY ──────────────────────────────────────────
+
+type BrandProductRow = {
+  id: string;
+  productId: string;
+  price: number | null;
+  isActive: boolean;
+  content: {
+    displayName: string | null;
+    tagline: string | null;
+    series: string | null;
+    badge: string | null;
+    shortDescription: string | null;
+    longDescription: string | null;
+    bulletPoints: unknown;
+    specs: unknown;
+    heroImage: string | null;
+    slug: string | null;
+    categoryPath: string | null;
+    status: string;
+    faqContent: unknown;
+    relatedSlugs: string[];
+    crossSellSlugs: string[];
+    searchKeywords: string[];
+    metaTitle: string | null;
+    metaDescription: string | null;
+    ogTitle: string | null;
+    ogDescription: string | null;
+    ogImage: string | null;
+    canonicalUrl: string | null;
+    galleryImages: unknown;
+  } | null;
+};
+
+function applyContentOverrides(
+  base: Product,
+  bp: BrandProductRow,
+): ProductWithContent {
+  const content = bp.content;
+  const result: ProductWithContent = { ...base };
+
+  // Brand-level price override
+  if (bp.price !== null) {
+    result.msrp = bp.price;
+  }
+
+  if (!content || content.status !== ContentStatus.PUBLISHED) {
+    return result;
+  }
+
+  // Merge PUBLISHED content fields
+  if (content.displayName) result.name = content.displayName;
+  if (content.tagline) result.tagline = content.tagline;
+  if (content.shortDescription) result.description = content.shortDescription;
+  if (content.heroImage) result.image = content.heroImage;
+  if (content.badge !== null && content.badge !== undefined) result.badge = content.badge || undefined;
+  if (content.series !== null && content.series !== undefined) result.series = content.series || undefined;
+  if (content.slug) result.slug = content.slug;
+
+  const categoryFromPath = content.categoryPath
+    ? extractCategoryFromPath(content.categoryPath)
+    : null;
+  if (isValidCategory(categoryFromPath)) result.category = categoryFromPath;
+
+  const mergedFeatures = parseStringArray(content.bulletPoints);
+  if (mergedFeatures) result.features = mergedFeatures;
+
+  const mergedSpecs = parseSpecsObject(content.specs);
+  if (mergedSpecs) result.specs = mergedSpecs;
+
+  // Rich content fields
+  result.longDescription = content.longDescription;
+  result.faqContent = parseFaqContent(content.faqContent);
+  result.relatedSlugs = content.relatedSlugs;
+  result.crossSellSlugs = content.crossSellSlugs;
+  result.searchKeywords = content.searchKeywords;
+  result.metaTitle = content.metaTitle;
+  result.metaDescription = content.metaDescription;
+  result.ogTitle = content.ogTitle;
+  result.ogDescription = content.ogDescription;
+  result.ogImage = content.ogImage;
+  result.canonicalUrl = content.canonicalUrl;
+
+  if (Array.isArray(content.galleryImages)) {
+    result.galleryImages = content.galleryImages.filter(
+      (v): v is string => typeof v === "string",
+    );
+  }
+
+  return result;
+}
+
+// ─── BRAND PRODUCT FETCHERS ──────────────────────────────────────────────────
+
+const CONTENT_SELECT = {
+  displayName: true,
+  tagline: true,
+  series: true,
+  badge: true,
+  shortDescription: true,
+  longDescription: true,
+  bulletPoints: true,
+  specs: true,
+  heroImage: true,
+  slug: true,
+  categoryPath: true,
+  status: true,
+  faqContent: true,
+  relatedSlugs: true,
+  crossSellSlugs: true,
+  searchKeywords: true,
+  metaTitle: true,
+  metaDescription: true,
+  ogTitle: true,
+  ogDescription: true,
+  ogImage: true,
+  canonicalUrl: true,
+  galleryImages: true,
+} as const;
+
+async function fetchBrandProductMap(): Promise<Map<string, BrandProductRow>> {
+  const results = await prisma.brandProduct.findMany({
+    where: {
+      brand: { slug: BRAND_SLUG },
+      isActive: true,
+    },
+    include: {
+      content: { select: CONTENT_SELECT },
+    },
+  });
+
+  const map = new Map<string, BrandProductRow>();
+  for (const bp of results) {
+    map.set(bp.productId, bp);
+  }
+  return map;
+}
+
+async function fetchBrandProductForSync(syncProductId: string): Promise<BrandProductRow | null> {
+  const bp = await prisma.brandProduct.findFirst({
+    where: {
+      brand: { slug: BRAND_SLUG },
+      productId: syncProductId,
+      isActive: true,
+    },
+    include: {
+      content: { select: CONTENT_SELECT },
+    },
+  });
+  return bp;
+}
+
+// =============================================================================
+// PUBLIC API
+// =============================================================================
+
+export type SortOption = "name" | "price-asc" | "price-desc" | "newest";
+
+interface GetProductsOptions {
+  category?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  sort?: SortOption;
 }
 
 /**
- * Get a single product by its slug.
- * Checks for BrandProduct + ProductContent overrides.
- * Falls back to static data lookup on any DB error or if not found.
+ * Paginated product listing with optional category, search, and sort.
  */
-export async function getProductBySlug(slug: string): Promise<Product | null> {
-  try {
-    const dbProduct = await prisma.syncProduct.findUnique({
-      where: { slug },
+export async function getProducts(options: GetProductsOptions = {}): Promise<PaginatedProducts> {
+  const {
+    category,
+    search,
+    page = 1,
+    limit = 50,
+    sort = "name",
+  } = options;
+
+  const where: Record<string, unknown> = { isActive: true };
+  if (category && isValidCategory(category)) {
+    where.category = category;
+  }
+  if (search && search.trim()) {
+    where.OR = [
+      { name: { contains: search.trim(), mode: "insensitive" } },
+      { description: { contains: search.trim(), mode: "insensitive" } },
+      { mpn: { contains: search.trim(), mode: "insensitive" } },
+    ];
+  }
+
+  // Determine sort order
+  let orderBy: Record<string, string> = { name: "asc" };
+  if (sort === "newest") orderBy = { createdAt: "desc" };
+  // Price sort is done post-query since MSRP comes from listings
+
+  const [total, dbProducts] = await Promise.all([
+    prisma.syncProduct.count({ where }),
+    prisma.syncProduct.findMany({
+      where,
       include: {
-        manufacturer: true,
         listings: {
-          where: { totalQuantity: { gt: 0 } },
-          orderBy: { sellPrice: "asc" },
-          include: {
-            warehouseInventory: true,
+          select: {
+            retailPrice: true,
+            sellPrice: true,
+            totalQuantity: true,
           },
         },
       },
-    });
+      orderBy: sort === "price-asc" || sort === "price-desc" ? { name: "asc" } : orderBy,
+      skip: (page - 1) * limit,
+      take: sort === "price-asc" || sort === "price-desc" ? undefined : limit,
+    }),
+  ]);
 
-    if (!dbProduct) {
-      // Also check if a ProductContent has this slug override
-      const contentProduct = await findProductByContentSlug(slug);
-      if (contentProduct) return contentProduct;
-      return staticGetBySlug(slug) ?? null;
+  // Fetch brand product overrides
+  const bpMap = await fetchBrandProductMap();
+
+  let products: Product[] = dbProducts.map((sp) => {
+    const base = mapSyncProduct(sp);
+    const bp = bpMap.get(sp.id);
+    if (bp) {
+      return applyContentOverrides(base, bp);
     }
+    return base;
+  });
 
-    // Check for brand product content
+  // Post-query price sort
+  if (sort === "price-asc") {
+    products.sort((a, b) => a.msrp - b.msrp);
+    products = products.slice((page - 1) * limit, page * limit);
+  } else if (sort === "price-desc") {
+    products.sort((a, b) => b.msrp - a.msrp);
+    products = products.slice((page - 1) * limit, page * limit);
+  }
+
+  return {
+    products,
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+/**
+ * Single product by slug with full content overrides.
+ */
+export async function getProductBySlug(slug: string): Promise<ProductWithContent | null> {
+  // First try direct SyncProduct slug lookup
+  let dbProduct = await prisma.syncProduct.findUnique({
+    where: { slug },
+    include: {
+      listings: {
+        select: {
+          retailPrice: true,
+          sellPrice: true,
+          totalQuantity: true,
+          warehouseInventory: { select: { quantity: true } },
+        },
+      },
+    },
+  });
+
+  if (dbProduct) {
+    const base = mapSyncProduct(dbProduct);
     const bp = await fetchBrandProductForSync(dbProduct.id);
     if (bp) {
-      return mapBrandProductToProduct(bp, dbProduct);
+      return applyContentOverrides(base, bp);
     }
-
-    return mapSyncProductToProduct(dbProduct);
-  } catch {
-    return staticGetBySlug(slug) ?? null;
+    return { ...base };
   }
+
+  // Check if a ProductContent has this slug as a custom override
+  const content = await prisma.productContent.findFirst({
+    where: {
+      slug,
+      status: ContentStatus.PUBLISHED,
+      brandProduct: {
+        brand: { slug: BRAND_SLUG },
+        isActive: true,
+      },
+    },
+    include: {
+      brandProduct: true,
+    },
+  });
+
+  if (!content) return null;
+
+  // Find the SyncProduct by the productId on the BrandProduct
+  dbProduct = await prisma.syncProduct.findFirst({
+    where: { id: content.brandProduct.productId },
+    include: {
+      listings: {
+        select: {
+          retailPrice: true,
+          sellPrice: true,
+          totalQuantity: true,
+          warehouseInventory: { select: { quantity: true } },
+        },
+      },
+    },
+  });
+
+  if (!dbProduct) return null;
+
+  const base = mapSyncProduct(dbProduct);
+  const bp: BrandProductRow = {
+    id: content.brandProduct.id,
+    productId: content.brandProduct.productId,
+    price: content.brandProduct.price,
+    isActive: content.brandProduct.isActive,
+    content: {
+      displayName: content.displayName,
+      tagline: content.tagline,
+      series: content.series,
+      badge: content.badge,
+      shortDescription: content.shortDescription,
+      longDescription: content.longDescription,
+      bulletPoints: content.bulletPoints,
+      specs: content.specs,
+      heroImage: content.heroImage,
+      slug: content.slug,
+      categoryPath: content.categoryPath,
+      status: content.status,
+      faqContent: content.faqContent,
+      relatedSlugs: content.relatedSlugs,
+      crossSellSlugs: content.crossSellSlugs,
+      searchKeywords: content.searchKeywords,
+      metaTitle: content.metaTitle,
+      metaDescription: content.metaDescription,
+      ogTitle: content.ogTitle,
+      ogDescription: content.ogDescription,
+      ogImage: content.ogImage,
+      canonicalUrl: content.canonicalUrl,
+      galleryImages: content.galleryImages,
+    },
+  };
+
+  return applyContentOverrides(base, bp);
 }
 
 /**
- * Get all active products in a specific category.
- * Layers BrandProduct + ProductContent overrides.
- * Falls back to static data on any DB error.
+ * Featured products — BrandProducts where isFeatured = true.
+ * Falls back to top products by stock if none flagged.
  */
-export async function getProductsByCategory(category: string): Promise<Product[]> {
-  try {
-    const dbProducts = await prisma.syncProduct.findMany({
-      where: {
-        isActive: true,
-        category,
-      },
+export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
+  // Try featured BrandProducts first
+  const featured = await prisma.brandProduct.findMany({
+    where: {
+      brand: { slug: BRAND_SLUG },
+      isActive: true,
+      isFeatured: true,
+    },
+    include: {
+      content: { select: CONTENT_SELECT },
+    },
+    take: limit,
+    orderBy: { sortOrder: "asc" },
+  });
+
+  if (featured.length > 0) {
+    const productIds = featured.map((bp) => bp.productId);
+    const syncProducts = await prisma.syncProduct.findMany({
+      where: { id: { in: productIds }, isActive: true },
       include: {
-        manufacturer: true,
         listings: {
-          where: { totalQuantity: { gt: 0 } },
-          orderBy: { sellPrice: "asc" },
+          select: { retailPrice: true, sellPrice: true, totalQuantity: true },
         },
       },
     });
 
-    if (dbProducts.length === 0) {
-      return staticGetByCategory(category);
-    }
+    const spMap = new Map(syncProducts.map((sp) => [sp.id, sp]));
 
-    // Fetch brand product overrides
-    const brandProducts = await fetchBrandProducts();
-    const bpByProductId = new Map<string, BrandProductWithContent>();
-    for (const bp of brandProducts) {
-      bpByProductId.set(bp.productId, bp);
-    }
-
-    return dbProducts.map((sp) => {
-      const bp = bpByProductId.get(sp.id);
-      if (bp) {
-        return mapBrandProductToProduct(bp, sp);
-      }
-      return mapSyncProductToProduct(sp);
-    });
-  } catch {
-    return staticGetByCategory(category);
+    return featured
+      .map((bp) => {
+        const sp = spMap.get(bp.productId);
+        if (!sp) return null;
+        const base = mapSyncProduct(sp);
+        return applyContentOverrides(base, bp);
+      })
+      .filter((p): p is ProductWithContent => p !== null);
   }
+
+  // Fallback: top products with stock, highest MSRP first
+  const topProducts = await prisma.syncProduct.findMany({
+    where: {
+      isActive: true,
+      listings: { some: { totalQuantity: { gt: 0 } } },
+    },
+    include: {
+      listings: {
+        select: { retailPrice: true, sellPrice: true, totalQuantity: true },
+      },
+    },
+    take: limit * 3, // fetch more to sort by MSRP
+  });
+
+  const bpMap = await fetchBrandProductMap();
+
+  let products = topProducts.map((sp) => {
+    const base = mapSyncProduct(sp);
+    const bp = bpMap.get(sp.id);
+    return bp ? applyContentOverrides(base, bp) : base;
+  });
+
+  // Sort by MSRP descending, take limit
+  products.sort((a, b) => b.msrp - a.msrp);
+  return products.slice(0, limit);
+}
+
+/**
+ * Total active product count.
+ */
+export async function getProductCount(): Promise<number> {
+  return prisma.syncProduct.count({ where: { isActive: true } });
+}
+
+/**
+ * All categories from DB for the SonicWall brand.
+ */
+export async function getCategories(): Promise<CategoryInfo[]> {
+  const categories = await prisma.category.findMany({
+    where: {
+      brand: { slug: BRAND_SLUG },
+      isActive: true,
+    },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  // Get product counts per category
+  const counts = await prisma.syncProduct.groupBy({
+    by: ["category"],
+    where: { isActive: true },
+    _count: { id: true },
+  });
+
+  const countMap = new Map(
+    counts.map((c) => [c.category, c._count.id]),
+  );
+
+  return categories.map((cat) => ({
+    id: cat.id,
+    slug: cat.slug,
+    name: cat.name,
+    description: cat.description,
+    image: cat.image,
+    heroHeadline: cat.heroHeadline,
+    heroDescription: cat.heroDescription,
+    heroGradient: cat.heroGradient,
+    metaTitle: cat.metaTitle,
+    metaDescription: cat.metaDescription,
+    ogImage: cat.ogImage,
+    productCount: countMap.get(cat.slug) ?? 0,
+  }));
+}
+
+/**
+ * Single category by slug with product count.
+ */
+export async function getCategoryBySlug(slug: string): Promise<CategoryInfo | null> {
+  const cat = await prisma.category.findFirst({
+    where: {
+      brand: { slug: BRAND_SLUG },
+      slug,
+      isActive: true,
+    },
+  });
+
+  if (!cat) return null;
+
+  const count = await prisma.syncProduct.count({
+    where: { isActive: true, category: slug },
+  });
+
+  return {
+    id: cat.id,
+    slug: cat.slug,
+    name: cat.name,
+    description: cat.description,
+    image: cat.image,
+    heroHeadline: cat.heroHeadline,
+    heroDescription: cat.heroDescription,
+    heroGradient: cat.heroGradient,
+    metaTitle: cat.metaTitle,
+    metaDescription: cat.metaDescription,
+    ogImage: cat.ogImage,
+    productCount: count,
+  };
+}
+
+/**
+ * Related products — same category or by relatedSlugs from content.
+ */
+export async function getRelatedProducts(
+  slug: string,
+  limit = 4,
+): Promise<Product[]> {
+  const product = await getProductBySlug(slug);
+  if (!product) return [];
+
+  // If content has relatedSlugs, fetch those
+  if (product.relatedSlugs && product.relatedSlugs.length > 0) {
+    const related = await prisma.syncProduct.findMany({
+      where: {
+        slug: { in: product.relatedSlugs },
+        isActive: true,
+      },
+      include: {
+        listings: {
+          select: { retailPrice: true, sellPrice: true, totalQuantity: true },
+        },
+      },
+      take: limit,
+    });
+
+    const bpMap = await fetchBrandProductMap();
+    return related.map((sp) => {
+      const base = mapSyncProduct(sp);
+      const bp = bpMap.get(sp.id);
+      return bp ? applyContentOverrides(base, bp) : base;
+    });
+  }
+
+  // Fallback: same category, exclude current product
+  const related = await prisma.syncProduct.findMany({
+    where: {
+      isActive: true,
+      category: product.category,
+      slug: { not: slug },
+      listings: { some: { totalQuantity: { gt: 0 } } },
+    },
+    include: {
+      listings: {
+        select: { retailPrice: true, sellPrice: true, totalQuantity: true },
+      },
+    },
+    take: limit,
+  });
+
+  const bpMap = await fetchBrandProductMap();
+  return related.map((sp) => {
+    const base = mapSyncProduct(sp);
+    const bp = bpMap.get(sp.id);
+    return bp ? applyContentOverrides(base, bp) : base;
+  });
 }
 
 // =============================================================================
-// PUBLIC API — Content-Specific Queries
+// CONTENT-SPECIFIC QUERIES
 // =============================================================================
 
 /**
- * Get product content (SEO metadata, rich snippets, etc.) for a given slug.
- * Returns null if no PUBLISHED content exists.
+ * Get product content for SEO metadata by slug.
  */
 export async function getProductContent(slug: string) {
-  try {
-    const content = await prisma.productContent.findFirst({
-      where: {
-        status: ContentStatus.PUBLISHED,
-        brandProduct: {
-          brand: { slug: BRAND_SLUG },
-          isActive: true,
-        },
-        OR: [
-          { slug },
-          { brandProduct: { productId: slug } },
-        ],
+  const content = await prisma.productContent.findFirst({
+    where: {
+      status: ContentStatus.PUBLISHED,
+      brandProduct: {
+        brand: { slug: BRAND_SLUG },
+        isActive: true,
       },
-    });
-
-    return content;
-  } catch {
-    return null;
-  }
+      OR: [
+        { slug },
+        { brandProduct: { productId: slug } },
+      ],
+    },
+  });
+  return content;
 }
 
 /**
- * Get page content sections for a given page slug (e.g., "home", "products").
- * Returns PUBLISHED sections ordered by sortOrder.
+ * Get page content sections for a given page slug.
  */
 export async function getPageContent(pageSlug: string) {
-  try {
-    const sections = await prisma.pageContent.findMany({
-      where: {
-        brand: { slug: BRAND_SLUG },
-        pageSlug,
-        status: ContentStatus.PUBLISHED,
-      },
-      orderBy: { sortOrder: "asc" },
-    });
-
-    return sections;
-  } catch {
-    return [];
-  }
+  const sections = await prisma.pageContent.findMany({
+    where: {
+      brand: { slug: BRAND_SLUG },
+      pageSlug,
+      status: ContentStatus.PUBLISHED,
+    },
+    orderBy: { sortOrder: "asc" },
+  });
+  return sections;
 }
 
 /**
- * Get a category with its content/SEO fields by slug.
- * Returns null if category not found or not active.
+ * Get category content/SEO fields by slug.
  */
 export async function getCategoryContent(categorySlug: string) {
-  try {
-    const category = await prisma.category.findFirst({
-      where: {
-        brand: { slug: BRAND_SLUG },
-        slug: categorySlug,
-        isActive: true,
-      },
-    });
-
-    return category;
-  } catch {
-    return null;
-  }
-}
-
-// =============================================================================
-// INTERNAL HELPERS
-// =============================================================================
-
-/**
- * Fetch all active BrandProducts for the SonicWall brand with their content.
- */
-async function fetchBrandProducts(): Promise<BrandProductWithContent[]> {
-  try {
-    const results = await prisma.brandProduct.findMany({
-      where: {
-        brand: { slug: BRAND_SLUG },
-        isActive: true,
-      },
-      include: {
-        content: {
-          select: {
-            displayName: true,
-            tagline: true,
-            series: true,
-            badge: true,
-            shortDescription: true,
-            bulletPoints: true,
-            specs: true,
-            heroImage: true,
-            slug: true,
-            categoryPath: true,
-            status: true,
-          },
-        },
-      },
-    });
-
-    return results;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Fetch a single BrandProduct (with content) for a given SyncProduct ID.
- */
-async function fetchBrandProductForSync(
-  syncProductId: string,
-): Promise<BrandProductWithContent | null> {
-  try {
-    const bp = await prisma.brandProduct.findFirst({
-      where: {
-        brand: { slug: BRAND_SLUG },
-        productId: syncProductId,
-        isActive: true,
-      },
-      include: {
-        content: {
-          select: {
-            displayName: true,
-            tagline: true,
-            series: true,
-            badge: true,
-            shortDescription: true,
-            bulletPoints: true,
-            specs: true,
-            heroImage: true,
-            slug: true,
-            categoryPath: true,
-            status: true,
-          },
-        },
-      },
-    });
-
-    return bp;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Look up a product by a ProductContent slug override.
- * This handles the case where content has a custom slug different from the
- * SyncProduct slug (e.g., "tz80-firewall" instead of "tz80").
- */
-async function findProductByContentSlug(slug: string): Promise<Product | null> {
-  try {
-    const content = await prisma.productContent.findFirst({
-      where: {
-        slug,
-        status: ContentStatus.PUBLISHED,
-        brandProduct: {
-          brand: { slug: BRAND_SLUG },
-          isActive: true,
-        },
-      },
-      include: {
-        brandProduct: true,
-      },
-    });
-
-    if (!content) return null;
-
-    // Now find the SyncProduct by the productId on the BrandProduct
-    const syncProduct = await prisma.syncProduct.findFirst({
-      where: { id: content.brandProduct.productId },
-      include: {
-        manufacturer: true,
-        listings: {
-          where: { totalQuantity: { gt: 0 } },
-          orderBy: { sellPrice: "asc" },
-        },
-      },
-    });
-
-    if (!syncProduct) return null;
-
-    const bp: BrandProductWithContent = {
-      id: content.brandProduct.id,
-      productId: content.brandProduct.productId,
-      price: content.brandProduct.price,
-      isActive: content.brandProduct.isActive,
-      content: {
-        displayName: content.displayName,
-        tagline: content.tagline,
-        series: content.series,
-        badge: content.badge,
-        shortDescription: content.shortDescription,
-        bulletPoints: content.bulletPoints,
-        specs: content.specs,
-        heroImage: content.heroImage,
-        slug: content.slug,
-        categoryPath: content.categoryPath,
-        status: content.status,
-      },
-    };
-
-    return mapBrandProductToProduct(bp, syncProduct);
-  } catch {
-    return null;
-  }
+  const category = await prisma.category.findFirst({
+    where: {
+      brand: { slug: BRAND_SLUG },
+      slug: categorySlug,
+      isActive: true,
+    },
+  });
+  return category;
 }

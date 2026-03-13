@@ -1,3 +1,17 @@
+export type ProductCategory =
+  | "firewalls"
+  | "switches"
+  | "access-points"
+  | "security-subscriptions"
+  | "support-contracts"
+  | "licenses"
+  | "cloud-security"
+  | "endpoint"
+  | "management"
+  | "accessories"
+  | "power-supplies"
+  | "email-security";
+
 export interface Product {
   id: string;
   name: string;
@@ -6,22 +20,52 @@ export interface Product {
   tagline: string;
   description: string;
   image: string;
-  price: number; // cents
+  msrp: number; // cents — MSRP from retailPrice on DistributorListing
   features: string[];
   specs?: Record<string, string>;
   badge?: string;
   series?: string;
+  mpn?: string;
+  inStock: boolean;
+  stockQuantity: number;
 }
 
-export type ProductCategory =
-  | "firewalls"
-  | "switches"
-  | "access-points"
-  | "cloud-security"
-  | "endpoint"
-  | "email-security"
-  | "management"
-  | "services";
+export interface ProductWithContent extends Product {
+  longDescription?: string | null;
+  faqContent?: { question: string; answer: string }[] | null;
+  relatedSlugs?: string[];
+  crossSellSlugs?: string[];
+  searchKeywords?: string[];
+  metaTitle?: string | null;
+  metaDescription?: string | null;
+  ogTitle?: string | null;
+  ogDescription?: string | null;
+  ogImage?: string | null;
+  canonicalUrl?: string | null;
+  galleryImages?: string[] | null;
+}
+
+export interface PaginatedProducts {
+  products: Product[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface CategoryInfo {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  heroHeadline: string | null;
+  heroDescription: string | null;
+  heroGradient: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  ogImage: string | null;
+  productCount?: number;
+}
 
 export interface CartItem {
   product: Product;

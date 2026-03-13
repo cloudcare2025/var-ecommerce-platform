@@ -1,348 +1,67 @@
 import type { Product } from "@/types";
 
+// =============================================================================
+// CATEGORIES — The 12 store categories (static reference, also in DB)
+// =============================================================================
+
+export const categories = [
+  { id: "firewalls" as const, name: "Firewalls", description: "Next-Generation Network Security" },
+  { id: "switches" as const, name: "Switches", description: "Enterprise Network Switching" },
+  { id: "access-points" as const, name: "Access Points", description: "Secure Wireless Access" },
+  { id: "security-subscriptions" as const, name: "Security Subscriptions", description: "Threat Protection Services" },
+  { id: "support-contracts" as const, name: "Support & Warranty", description: "Extended Coverage & Services" },
+  { id: "licenses" as const, name: "Software Licenses", description: "Platform & Feature Licensing" },
+  { id: "cloud-security" as const, name: "Cloud Security", description: "SASE & Zero Trust Access" },
+  { id: "endpoint" as const, name: "Endpoint & MDR", description: "Detection & Response" },
+  { id: "management" as const, name: "Management", description: "Unified Security Management" },
+  { id: "accessories" as const, name: "Accessories", description: "Racks, Cables & Add-Ons" },
+  { id: "power-supplies" as const, name: "Power & Redundancy", description: "Power Supplies & UPS" },
+  { id: "email-security" as const, name: "Email Security", description: "Email Protection & Filtering" },
+] as const;
+
+// =============================================================================
+// STATIC FALLBACK PRODUCTS — Minimal set used when DB is unreachable
+// These will be shown ONLY if the database connection fails entirely.
+// =============================================================================
+
 export const products: Product[] = [
-  // ─── FIREWALLS ───
   {
-    id: "tz80",
-    name: "TZ80",
-    slug: "tz80",
+    id: "tz270",
+    name: "TZ270",
+    slug: "02-ssc-2821",
     category: "firewalls",
     series: "TZ Series",
-    tagline: "SOHO, IoT & Branch Offices",
+    tagline: "SMB & Branch Office Firewall",
     description:
-      "Best-in-class threat protection for your small office, home office, IoT and Micro-SMBs, with easy local and cloud management.",
-    image: "/images/products/tz80-firewall.png",
-    price: 39500,
-    badge: "New",
-    features: [
-      "Real-Time Deep Memory Inspection (RTDMI)",
-      "Reassembly-Free Deep Packet Inspection",
-      "Built-in wireless controller",
-      "Cloud-based and local management",
-      "Zero-Touch Deployment",
-    ],
-    specs: {
-      "Firewall Throughput": "600 Mbps",
-      "IPS Throughput": "400 Mbps",
-      "Threat Prevention": "300 Mbps",
-      "Max Connections": "50,000",
-      "Interfaces": "8x1GbE, 1xUSB 3.0",
-      "Form Factor": "Desktop",
-      "Wireless": "802.11ac Wave 2",
-    },
+      "Compact, enterprise-grade firewall for small to mid-size businesses with SD-WAN, deep packet inspection, and zero-trust security.",
+    image: "/images/products/placeholder.png",
+    msrp: 0,
+    mpn: "02-SSC-2821",
+    inStock: false,
+    stockQuantity: 0,
+    features: [],
   },
   {
-    id: "tz-series",
-    name: "TZ Series",
-    slug: "tz-series",
-    category: "firewalls",
-    series: "TZ Series",
-    tagline: "SMB & Branch Offices",
-    description:
-      "Enterprise-grade protection for your small to mid-size business or branch office with advanced threat prevention.",
-    image: "/images/products/tz-series-smb.webp",
-    price: 69900,
-    features: [
-      "Multi-engine sandboxing",
-      "TLS/SSL deep packet inspection",
-      "SD-WAN built-in",
-      "High-speed multi-core architecture",
-      "Integrated wireless controller",
-    ],
-    specs: {
-      "Firewall Throughput": "Up to 5 Gbps",
-      "IPS Throughput": "Up to 2.5 Gbps",
-      "Threat Prevention": "Up to 1.5 Gbps",
-      "Max Connections": "Up to 500,000",
-      "Interfaces": "Up to 16x1GbE, 4x10GbE",
-      "Form Factor": "1U Rack-Mount",
-      "SD-WAN": "Included",
-    },
-  },
-  {
-    id: "nsa-series",
-    name: "NSA Series",
-    slug: "nsa-series",
+    id: "nsa-2700",
+    name: "NSA 2700",
+    slug: "02-ssc-8198",
     category: "firewalls",
     series: "NSA Series",
-    tagline: "Mid-Sized Enterprises",
+    tagline: "Mid-Sized Enterprise Firewall",
     description:
-      "Unrivaled threat prevention in a high-performance security platform designed for mid-sized enterprises.",
-    image: "/images/products/nsa-series.webp",
-    price: 249900,
-    features: [
-      "Multi-instance deployment",
-      "Redundant power supplies",
-      "10GbE/25GbE interfaces",
-      "Advanced threat protection",
-      "Real-time visualization",
-    ],
-    specs: {
-      "Firewall Throughput": "Up to 20 Gbps",
-      "IPS Throughput": "Up to 15 Gbps",
-      "Threat Prevention": "Up to 9.5 Gbps",
-      "Max Connections": "Up to 3,000,000",
-      "Interfaces": "Up to 24x1GbE, 8x10GbE, 4x25GbE",
-      "Form Factor": "1U Rack-Mount",
-      "Redundancy": "Dual PSU, HA Clustering",
-    },
-  },
-  {
-    id: "nssp-series",
-    name: "NSSP Series",
-    slug: "nssp-series",
-    category: "firewalls",
-    series: "NSSP Series",
-    tagline: "Large Enterprises & Data Centers",
-    description:
-      "Scalable security leveraging cloud intelligence, designed for large distributed enterprises, data centers and service providers.",
-    image: "/images/products/nssp-series.webp",
-    price: 899900,
-    features: [
-      "100GbE interfaces",
-      "Multi-instance architecture",
-      "Carrier-grade reliability",
-      "Redundant fans and power",
-      "High availability clustering",
-    ],
-    specs: {
-      "Firewall Throughput": "Up to 105 Gbps",
-      "IPS Throughput": "Up to 70 Gbps",
-      "Threat Prevention": "Up to 50 Gbps",
-      "Max Connections": "Up to 25,000,000",
-      "Interfaces": "Up to 100GbE",
-      "Form Factor": "2U Rack-Mount",
-      "Redundancy": "Dual PSU, Fans, HA",
-    },
-  },
-  {
-    id: "nsv-series",
-    name: "NSv Series",
-    slug: "nsv-series",
-    category: "firewalls",
-    series: "NSv Series",
-    tagline: "Virtual Firewalls",
-    description:
-      "Next-generation cloud security for hybrid and multi-cloud environments including AWS, Azure, and ESXi.",
-    image: "/images/products/nsv-series.webp",
-    price: 149900,
-    features: [
-      "Multi-cloud deployment",
-      "Full NGFW capabilities",
-      "Centralized management via NSM",
-      "Elastic scaling",
-      "Zero-touch provisioning",
-    ],
-    specs: {
-      "Firewall Throughput": "Up to 28 Gbps",
-      "IPS Throughput": "Up to 18 Gbps",
-      "Threat Prevention": "Up to 12 Gbps",
-      "Platforms": "AWS, Azure, ESXi, Hyper-V, KVM",
-      "Management": "NSM, CLI, API",
-      "Deployment": "Virtual Appliance",
-      "Licensing": "Subscription",
-    },
-  },
-  // ─── SWITCHES ───
-  {
-    id: "sws-14-48fpoe",
-    name: "SWS 14-48FPOE",
-    slug: "sws-14-48fpoe",
-    category: "switches",
-    series: "SWS Series",
-    tagline: "48-Port Full PoE+ Managed Switch",
-    description:
-      "Enterprise 48-port full PoE+ managed switch with 4x 10G SFP+ uplinks for high-density deployments.",
-    image: "/images/products/SWS-14-48FPOE.png",
-    price: 189900,
-    features: [
-      "48 PoE+ ports (740W budget)",
-      "4x 10G SFP+ uplinks",
-      "Layer 2+ management",
-      "Zero-Touch Deployment",
-      "NSM cloud management",
-    ],
-    specs: {
-      "Ports": "48x 1GbE PoE+",
-      "Uplinks": "4x 10G SFP+",
-      "PoE Budget": "740W",
-      "Switching Capacity": "176 Gbps",
-      "MAC Addresses": "16,000",
-      "Form Factor": "1U Rack-Mount",
-      "Management": "NSM, CLI, Web UI",
-    },
-  },
-  {
-    id: "sws-14-24fpoe",
-    name: "SWS 14-24FPOE",
-    slug: "sws-14-24fpoe",
-    category: "switches",
-    series: "SWS Series",
-    tagline: "24-Port Full PoE+ Managed Switch",
-    description:
-      "24-port full PoE+ managed switch with 4x 10G SFP+ uplinks for branch and campus deployments.",
-    image: "/images/products/SWS-14-24FPOE.png",
-    price: 119900,
-    features: [
-      "24 PoE+ ports (370W budget)",
-      "4x 10G SFP+ uplinks",
-      "Layer 2+ management",
-      "Zero-Touch Deployment",
-      "NSM cloud management",
-    ],
-    specs: {
-      "Ports": "24x 1GbE PoE+",
-      "Uplinks": "4x 10G SFP+",
-      "PoE Budget": "370W",
-      "Switching Capacity": "128 Gbps",
-      "MAC Addresses": "16,000",
-      "Form Factor": "1U Rack-Mount",
-      "Management": "NSM, CLI, Web UI",
-    },
-  },
-  {
-    id: "sws-12-8poe",
-    name: "SWS 12-8POE",
-    slug: "sws-12-8poe",
-    category: "switches",
-    series: "SWS Series",
-    tagline: "8-Port PoE+ Compact Switch",
-    description:
-      "Compact 8-port PoE+ managed switch ideal for small offices and edge deployments.",
-    image: "/images/products/SWS-12-8POE.png",
-    price: 49900,
-    features: [
-      "8 PoE+ ports (130W budget)",
-      "2x 1G SFP uplinks",
-      "Fanless design",
-      "Zero-Touch Deployment",
-      "NSM cloud management",
-    ],
-    specs: {
-      "Ports": "8x 1GbE PoE+",
-      "Uplinks": "2x 1G SFP",
-      "PoE Budget": "130W",
-      "Switching Capacity": "20 Gbps",
-      "MAC Addresses": "8,000",
-      "Form Factor": "Desktop / Wall-Mount",
-      "Cooling": "Fanless",
-    },
-  },
-  // ─── CLOUD SECURITY ───
-  {
-    id: "cloud-secure-edge",
-    name: "Cloud Secure Edge",
-    slug: "cloud-secure-edge",
-    category: "cloud-security",
-    tagline: "Zero Trust Access Platform",
-    description:
-      "Zero Trust access for cloud, SaaS, and hybrid work without the overhead, risk, or complexity of VPNs.",
-    image: "/images/products/icon-cloud-edge.png",
-    price: 499,
-    badge: "Per User/Mo",
-    features: [
-      "Zero Trust Network Access (ZTNA)",
-      "Secure Web Gateway (SWG)",
-      "Cloud Access Security Broker (CASB)",
-      "Built-in Two-Factor Authentication",
-      "Multi-tenant management",
-    ],
-    specs: {
-      "Architecture": "Cloud-Native SASE",
-      "ZTNA": "Included",
-      "SWG": "Included",
-      "CASB": "Included",
-      "MFA": "Built-in",
-      "Deployment": "Agentless + Agent",
-      "Licensing": "Per User / Month",
-    },
-  },
-  {
-    id: "sonicsentry-mdr",
-    name: "SonicSentry MDR",
-    slug: "sonicsentry-mdr",
-    category: "endpoint",
-    tagline: "Managed Detection & Response",
-    description:
-      "24/7 expert SOC monitoring and rapid mitigation for endpoint cyber threats.",
-    image: "/images/products/icon-mdr-xdr.png",
-    price: 799,
-    badge: "Per Endpoint/Mo",
-    features: [
-      "24/7 SOC monitoring",
-      "Rapid threat mitigation",
-      "Endpoint detection & response",
-      "Expert threat hunting",
-      "Incident response",
-    ],
-    specs: {
-      "Monitoring": "24/7/365 SOC",
-      "Response Time": "< 1 Hour",
-      "Platforms": "Windows, macOS, Linux",
-      "Threat Hunting": "Proactive",
-      "Reporting": "Monthly + On-Demand",
-      "Onboarding": "< 48 Hours",
-      "Licensing": "Per Endpoint / Month",
-    },
-  },
-  {
-    id: "capture-client",
-    name: "Capture Client",
-    slug: "capture-client",
-    category: "endpoint",
-    tagline: "Endpoint Security Platform",
-    description:
-      "Dual-engine, layered security solution that protects endpoints whenever, wherever they operate.",
-    image: "/images/products/icon-capture-client.png",
-    price: 349,
-    badge: "Per Endpoint/Mo",
-    features: [
-      "Next-gen antivirus",
-      "EDR capabilities",
-      "Rollback remediation",
-      "Content filtering",
-      "Device compliance enforcement",
-    ],
-    specs: {
-      "Engines": "SentinelOne + SonicWall",
-      "Platforms": "Windows, macOS",
-      "EDR": "Included",
-      "Rollback": "Full System Rollback",
-      "Content Filtering": "Included",
-      "Management": "Cloud Console",
-      "Licensing": "Per Endpoint / Month",
-    },
-  },
-  // ─── MANAGEMENT ───
-  {
-    id: "nsm",
-    name: "Network Security Manager",
-    slug: "network-security-manager",
-    category: "management",
-    tagline: "Centralized Firewall Management",
-    description:
-      "Simplified, centralized management of your firewalls, connected switches, and access points from a single dashboard.",
-    image: "/images/products/mgmt-card-2.png",
-    price: 0,
-    badge: "Included",
-    features: [
-      "Multi-tenant architecture",
-      "Zero-Touch Deployment",
-      "Real-time monitoring",
-      "Automated reporting",
-      "Policy management",
-    ],
-    specs: {
-      "Architecture": "Cloud-Native SaaS",
-      "Multi-Tenant": "Yes",
-      "Devices Managed": "Unlimited",
-      "Zero-Touch": "Included",
-      "Reporting": "Real-Time + Scheduled",
-      "API": "RESTful API",
-      "Licensing": "Included with Firewall",
-    },
+      "High-performance next-gen firewall for mid-sized enterprises with advanced threat protection and 10GbE interfaces.",
+    image: "/images/products/placeholder.png",
+    msrp: 0,
+    mpn: "02-SSC-8198",
+    inStock: false,
+    stockQuantity: 0,
+    features: [],
   },
 ];
+
+// =============================================================================
+// HELPER FUNCTIONS — Used as fallbacks by src/lib/db/products.ts
+// =============================================================================
 
 export function getProductsByCategory(category: string): Product[] {
   return products.filter((p) => p.category === category);
@@ -351,12 +70,3 @@ export function getProductsByCategory(category: string): Product[] {
 export function getProductBySlug(slug: string): Product | undefined {
   return products.find((p) => p.slug === slug);
 }
-
-export const categories = [
-  { id: "firewalls", name: "Firewalls", description: "Next-Generation Network Security" },
-  { id: "switches", name: "Switches", description: "Enterprise Network Access" },
-  { id: "access-points", name: "Access Points", description: "Secure Wireless" },
-  { id: "cloud-security", name: "Cloud Security", description: "SASE & Zero Trust" },
-  { id: "endpoint", name: "Endpoint & MDR", description: "Detection & Response" },
-  { id: "management", name: "Management", description: "Unified Security Management" },
-] as const;

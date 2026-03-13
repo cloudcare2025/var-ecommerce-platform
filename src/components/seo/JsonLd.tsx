@@ -23,7 +23,7 @@ export function generateOrganizationJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "SonicWall Store",
+    name: "SonicWall Store by A5 IT",
     url: BASE_URL,
     logo: `${BASE_URL}/images/sonicwall-logo.svg`,
     description:
@@ -45,6 +45,12 @@ export function generateOrganizationJsonLd() {
       postalCode: "95035",
       addressCountry: "US",
     },
+    areaServed: "US",
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: "SonicWall Products",
+      url: `${BASE_URL}/products`,
+    },
     sameAs: [],
   };
 }
@@ -61,18 +67,40 @@ export function generateWebSiteJsonLd() {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: `${BASE_URL}/products?q={search_term_string}`,
+        urlTemplate: `${BASE_URL}/products?search={search_term_string}`,
       },
       "query-input": "required name=search_term_string",
     },
   };
 }
 
+// ─── Enhanced Product Schema Props ──────────────────────────────────────────
+
+export interface ProductJsonLdExtras {
+  /** Distributor SKU (from DistributorListing.distributorSku) */
+  sku?: string;
+  /** UPC/GTIN-13 code if available */
+  gtin13?: string;
+  /** Category display name for schema */
+  categoryName?: string;
+}
+
 // ─── Product Schema ──────────────────────────────────────────────────────────
 
-export function generateProductJsonLd(product: Product) {
-  const priceValue =
-    product.price > 0 ? (product.price / 100).toFixed(2) : undefined;
+export function generateProductJsonLd(
+  product: Product,
+  extras?: ProductJsonLdExtras,
+) {
+  const msrpValue =
+    product.msrp > 0 ? (product.msrp / 100).toFixed(2) : undefined;
+
+  const priceValidUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  const availabilityUrl = product.inStock
+    ? "https://schema.org/InStock"
+    : "https://schema.org/PreOrder";
 
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -87,34 +115,55 @@ export function generateProductJsonLd(product: Product) {
       "@type": "Brand",
       name: "SonicWall",
     },
-    category: product.series || product.category,
+    category: extras?.categoryName || product.series || product.category,
   };
 
-  if (priceValue) {
+  if (product.mpn) {
+    schema.mpn = product.mpn;
+    schema.sku = extras?.sku || product.mpn;
+  }
+
+  // GTIN-13 / UPC code
+  if (extras?.gtin13) {
+    schema.gtin13 = extras.gtin13;
+  }
+
+  if (msrpValue) {
     schema.offers = {
       "@type": "Offer",
       priceCurrency: "USD",
-      price: priceValue,
-      availability: "https://schema.org/InStock",
+      price: msrpValue,
+      priceValidUntil,
+      availability: availabilityUrl,
+      itemCondition: "https://schema.org/NewCondition",
       seller: {
         "@type": "Organization",
-        name: "SonicWall Store",
+        name: "SonicWall Store by A5 IT",
+      },
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "US",
+        },
+      },
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "US",
+        returnPolicyCategory:
+          "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 30,
       },
     };
   } else {
     schema.offers = {
       "@type": "Offer",
       priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-      price: "0",
-      priceValidUntil: new Date(
-        Date.now() + 365 * 24 * 60 * 60 * 1000,
-      )
-        .toISOString()
-        .split("T")[0],
+      availability: availabilityUrl,
+      itemCondition: "https://schema.org/NewCondition",
       seller: {
         "@type": "Organization",
-        name: "SonicWall Store",
+        name: "SonicWall Store by A5 IT",
       },
     };
   }
@@ -130,6 +179,36 @@ export function generateProductJsonLd(product: Product) {
   }
 
   return schema;
+}
+
+// ─── AggregateOffer Schema (for category pages) ─────────────────────────────
+
+export function generateAggregateOfferJsonLd(opts: {
+  lowPrice: number;
+  highPrice: number;
+  offerCount: number;
+  categoryName: string;
+  categoryUrl: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: `SonicWall ${opts.categoryName}`,
+    url: opts.categoryUrl.startsWith("http")
+      ? opts.categoryUrl
+      : `${BASE_URL}${opts.categoryUrl}`,
+    brand: {
+      "@type": "Brand",
+      name: "SonicWall",
+    },
+    offers: {
+      "@type": "AggregateOffer",
+      lowPrice: (opts.lowPrice / 100).toFixed(2),
+      highPrice: (opts.highPrice / 100).toFixed(2),
+      priceCurrency: "USD",
+      offerCount: opts.offerCount,
+    },
+  };
 }
 
 // ─── BreadcrumbList Schema ───────────────────────────────────────────────────
@@ -179,7 +258,7 @@ export function generateItemListJsonLd(
     "@type": "ItemList",
     name: listName,
     numberOfItems: products.length,
-    itemListElement: products.map((product, index) => ({
+    itemListElement: products.slice(0, 100).map((product, index) => ({
       "@type": "ListItem",
       position: index + 1,
       url: `${BASE_URL}/products/${product.slug}`,

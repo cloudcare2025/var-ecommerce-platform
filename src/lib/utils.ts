@@ -11,3 +11,16 @@ export function formatPrice(cents: number): string {
     currency: "USD",
   }).format(cents / 100);
 }
+
+export function formatMsrp(cents: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
+export function requestQuoteUrl(slug: string, name: string): string {
+  return `/contact?product=${encodeURIComponent(slug)}&name=${encodeURIComponent(name)}`;
+}

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { getProducts } from "@/lib/db/products";
-import { categories } from "@/data/products";
+import { getProducts, getCategories, getProductCount } from "@/lib/db/products";
 import { ProductsClient } from "./products-client";
 import {
   JsonLd,
@@ -41,8 +40,27 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function ProductsPage() {
-  const products = await getProducts();
+type Props = {
+  searchParams: Promise<{
+    page?: string;
+    category?: string;
+    search?: string;
+    sort?: string;
+  }>;
+};
+
+export default async function ProductsPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.page || "1", 10) || 1);
+  const category = params.category || undefined;
+  const search = params.search || undefined;
+  const sort = (params.sort as "name" | "price-asc" | "price-desc" | "newest") || "name";
+
+  const [result, categories, totalCount] = await Promise.all([
+    getProducts({ category, search, page, limit: 48, sort }),
+    getCategories(),
+    getProductCount(),
+  ]);
 
   const breadcrumbs = [
     { name: "Home", url: "/" },
@@ -52,8 +70,21 @@ export default async function ProductsPage() {
   return (
     <>
       <JsonLd data={generateBreadcrumbJsonLd(breadcrumbs)} />
-      <JsonLd data={generateItemListJsonLd(products, "SonicWall Products")} />
-      <ProductsClient products={products} categories={categories} />
+      {result.products.length > 0 && (
+        <JsonLd
+          data={generateItemListJsonLd(result.products, "SonicWall Products")}
+        />
+      )}
+      <ProductsClient
+        products={result.products}
+        categories={categories}
+        totalProducts={totalCount}
+        currentPage={result.page}
+        totalPages={result.totalPages}
+        activeCategory={category || "all"}
+        activeSearch={search || ""}
+        activeSort={sort}
+      />
     </>
   );
 }
