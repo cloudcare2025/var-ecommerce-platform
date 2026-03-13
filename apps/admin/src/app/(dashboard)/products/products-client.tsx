@@ -7,7 +7,6 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
   Filter,
   Package,
 } from "lucide-react";
@@ -163,13 +162,12 @@ export default function ProductsClient({ initialProducts, initialTotal }: Produc
                 <th className="text-right text-xs font-medium text-admin-text-muted px-6 py-3">Price</th>
                 <th className="text-center text-xs font-medium text-admin-text-muted px-6 py-3">Stock</th>
                 <th className="text-center text-xs font-medium text-admin-text-muted px-6 py-3">Status</th>
-                <th className="text-center text-xs font-medium text-admin-text-muted px-6 py-3 w-12"></th>
               </tr>
             </thead>
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={7} className="text-center py-12">
                     <Package size={40} className="mx-auto text-slate-300 mb-3" />
                     <p className="text-sm text-admin-text-muted">No products found matching your filters</p>
                   </td>
@@ -208,7 +206,7 @@ export default function ProductsClient({ initialProducts, initialTotal }: Produc
                         <span className="text-sm font-medium text-admin-text">
                           {formatPrice(product.priceCents)}
                         </span>
-                        {product.compareAtCents && (
+                        {product.compareAtCents != null && (
                           <div className="text-xs text-admin-text-muted line-through">
                             {formatPrice(product.compareAtCents)}
                           </div>
@@ -223,11 +221,6 @@ export default function ProductsClient({ initialProducts, initialTotal }: Produc
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${getStatusClasses(product.status)}`}>
                           {product.status}
                         </span>
-                      </td>
-                      <td className="px-6 py-3 text-center">
-                        <button className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600">
-                          <MoreHorizontal size={16} />
-                        </button>
                       </td>
                     </tr>
                   );

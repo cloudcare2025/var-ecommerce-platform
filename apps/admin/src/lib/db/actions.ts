@@ -441,11 +441,7 @@ export async function resolveBrandAction(
     });
 
     // Create a ManufacturerAlias for future auto-matching
-    const aliasNormalized = brand.rawValue
-      .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+    const aliasNormalized = brand.rawValue.toLowerCase().replace(/[^a-z0-9]/g, "");
 
     await prisma.manufacturerAlias.upsert({
       where: {
@@ -495,6 +491,142 @@ export async function resolveBrandAction(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown error resolving brand";
+    return { success: false as const, error: message };
+  }
+}
+
+// =============================================================================
+// PRICING RULES
+// =============================================================================
+
+export async function updateBrandPricingAction(
+  brandId: string,
+  data: { defaultMarkupPercent: number; mapEnabled: boolean },
+) {
+  try {
+    const brand = await prisma.brand.findUnique({ where: { id: brandId } });
+    if (!brand) {
+      return { success: false as const, error: "Brand not found" };
+    }
+
+    const existingSettings = (brand.settings as Record<string, unknown>) ?? {};
+    await prisma.brand.update({
+      where: { id: brandId },
+      data: {
+        settings: {
+          ...existingSettings,
+          pricing: {
+            defaultMarkupPercent: data.defaultMarkupPercent,
+            mapEnabled: data.mapEnabled,
+            mapBehavior: "floor",
+          },
+        },
+      },
+    });
+
+    // Upsert brand-level pricing rule (categoryId=null, productId=null).
+    // Prisma composite unique can't match nulls, so use findFirst + create/update.
+    const existing = await prisma.pricingRule.findFirst({
+      where: { brandId, categoryId: null, productId: null },
+    });
+
+    if (existing) {
+      await prisma.pricingRule.update({
+        where: { id: existing.id },
+        data: { markupPercent: data.defaultMarkupPercent },
+      });
+    } else {
+      await prisma.pricingRule.create({
+        data: { brandId, markupPercent: data.defaultMarkupPercent },
+      });
+    }
+
+    revalidatePath("/brands");
+    return { success: true as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function upsertCategoryPricingRuleAction(
+  brandId: string,
+  categoryId: string,
+  markupPercent: number,
+) {
+  try {
+    const existing = await prisma.pricingRule.findFirst({
+      where: { brandId, categoryId, productId: null },
+    });
+
+    if (existing) {
+      await prisma.pricingRule.update({
+        where: { id: existing.id },
+        data: { markupPercent },
+      });
+    } else {
+      await prisma.pricingRule.create({
+        data: { brandId, categoryId, markupPercent },
+      });
+    }
+
+    revalidatePath("/brands");
+
+    return { success: true as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function deletePricingRuleAction(ruleId: string) {
+  try {
+    await prisma.pricingRule.delete({ where: { id: ruleId } });
+    revalidatePath("/brands");
+    revalidatePath("/products/catalog");
+    return { success: true as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function upsertProductPricingRuleAction(
+  brandId: string,
+  productId: string,
+  data: {
+    markupPercent: number;
+    manualMapCents: number | null;
+    fixedPriceCents: number | null;
+  },
+) {
+  try {
+    const existing = await prisma.pricingRule.findFirst({
+      where: { brandId, productId, categoryId: null },
+    });
+
+    const payload = {
+      markupPercent: data.markupPercent,
+      manualMapCents: data.manualMapCents !== null ? BigInt(data.manualMapCents) : null,
+      fixedPriceCents: data.fixedPriceCents !== null ? BigInt(data.fixedPriceCents) : null,
+    };
+
+    if (existing) {
+      await prisma.pricingRule.update({
+        where: { id: existing.id },
+        data: payload,
+      });
+    } else {
+      await prisma.pricingRule.create({
+        data: { brandId, productId, ...payload },
+      });
+    }
+
+    revalidatePath("/products/catalog");
+
+    return { success: true as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
     return { success: false as const, error: message };
   }
 }

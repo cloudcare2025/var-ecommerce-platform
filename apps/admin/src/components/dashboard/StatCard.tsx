@@ -1,6 +1,4 @@
-"use client";
-
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface StatCardProps {
   label: string;
@@ -11,7 +9,8 @@ interface StatCardProps {
 }
 
 export default function StatCard({ label, value, change, icon, prefix }: StatCardProps) {
-  const isPositive = change >= 0;
+  const isPositive = change > 0;
+  const isNeutral = change === 0;
 
   return (
     <div className="bg-admin-card rounded-xl border border-admin-border p-6 hover:shadow-sm transition-shadow">
@@ -28,14 +27,20 @@ export default function StatCard({ label, value, change, icon, prefix }: StatCar
         </div>
       </div>
       <div className="mt-3 flex items-center gap-1.5">
-        {isPositive ? (
+        {isNeutral ? (
+          <Minus size={14} className="text-admin-text-muted" />
+        ) : isPositive ? (
           <TrendingUp size={14} className="text-admin-success" />
         ) : (
           <TrendingDown size={14} className="text-admin-danger" />
         )}
         <span
           className={`text-xs font-medium ${
-            isPositive ? "text-admin-success" : "text-admin-danger"
+            isNeutral
+              ? "text-admin-text-muted"
+              : isPositive
+                ? "text-admin-success"
+                : "text-admin-danger"
           }`}
         >
           {isPositive ? "+" : ""}

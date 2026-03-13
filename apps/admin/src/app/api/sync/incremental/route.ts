@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { runIncrementalSync } from "@var/sync";
 
 function validateApiKey(request: Request): boolean {
+  const expected = process.env.SYNC_API_KEY;
+  if (!expected) return false;
   const key = request.headers.get("authorization")?.replace("Bearer ", "");
-  return key === process.env.SYNC_API_KEY;
+  return key === expected;
 }
 
 const VALID_TIERS = new Set(["hot", "standard", "cold"]);

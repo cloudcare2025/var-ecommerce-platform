@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { ArrowLeft, Globe } from "lucide-react";
-import { getBrandBySlug } from "@/lib/db/queries";
+import { getBrandBySlug, getPricingRules, getBrandCategories } from "@/lib/db/queries";
 import BrandDetailClient from "./brand-detail-client";
 
 export default async function BrandDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -28,5 +28,16 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ sl
     );
   }
 
-  return <BrandDetailClient brand={brandData} />;
+  const [pricingRules, categories] = await Promise.all([
+    getPricingRules(brandData.id),
+    getBrandCategories(brandData.id),
+  ]);
+
+  return (
+    <BrandDetailClient
+      brand={brandData}
+      pricingRules={pricingRules}
+      categories={categories}
+    />
+  );
 }

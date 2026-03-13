@@ -19,6 +19,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
   const config = ORDER_STATUSES[status];
   const colorClasses: Record<OrderStatus, string> = {
     pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    confirmed: "bg-sky-50 text-sky-700 border-sky-200",
     processing: "bg-blue-50 text-blue-700 border-blue-200",
     shipped: "bg-purple-50 text-purple-700 border-purple-200",
     delivered: "bg-green-50 text-green-700 border-green-200",
@@ -89,7 +90,7 @@ export default function OrdersClient({ initialOrders, initialTotal, statusCounts
 
       {/* Status tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
-        {["all", "pending", "processing", "shipped", "delivered", "cancelled", "refunded"].map(
+        {["all", "pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"].map(
           (status) => (
             <button
               key={status}

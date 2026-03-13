@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
@@ -10,7 +10,17 @@ import {
   ChevronUp,
   Package,
   Layers,
+  Save,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
+import {
+  resolvePrice,
+  resolveMarkup,
+  getBrandPricingSettings,
+  type PricingRuleData,
+} from "@var/shared";
+import { upsertProductPricingRuleAction } from "@/lib/db/actions";
 
 interface Distributor {
   name: string;
@@ -38,6 +48,23 @@ interface CatalogProduct {
   distributors: Distributor[];
 }
 
+interface BrandPricingRule {
+  id: string;
+  categoryId: string | null;
+  productId: string | null;
+  markupPercent: number;
+  fixedPriceCents: number | null;
+  manualMapCents: number | null;
+}
+
+interface BrandWithPricing {
+  id: string;
+  slug: string;
+  name: string;
+  settings: unknown;
+  pricingRules: BrandPricingRule[];
+}
+
 interface Props {
   products: CatalogProduct[];
   total: number;
@@ -48,8 +75,12 @@ interface Props {
   distributor: string;
   inStock: boolean;
   vendors: { name: string; slug: string }[];
+  brands?: BrandWithPricing[];
+  activeBrandSlug?: string;
 }
 
+/** Formats cents to dollars with null handling (returns "—" for null).
+ *  Differs from shared formatPrice which does not accept null. */
 function formatCents(cents: number | null): string {
   if (cents === null) return "\u2014";
   return `$${(cents / 100).toFixed(2)}`;
@@ -72,6 +103,12 @@ const DISTRIBUTOR_COLORS: Record<string, string> = {
   "D&H": "bg-emerald-100 text-emerald-800 border-emerald-200",
 };
 
+const SOURCE_BADGES: Record<string, { label: string; class: string }> = {
+  markup: { label: "Markup", class: "bg-blue-50 text-blue-700 border-blue-200" },
+  map_floor: { label: "MAP Floor", class: "bg-amber-50 text-amber-700 border-amber-200" },
+  fixed: { label: "Fixed", class: "bg-purple-50 text-purple-700 border-purple-200" },
+};
+
 export default function CatalogClient({
   products,
   total,
@@ -82,6 +119,8 @@ export default function CatalogClient({
   distributor: initialDistributor,
   inStock: initialInStock,
   vendors,
+  brands = [],
+  activeBrandSlug = "",
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -90,6 +129,9 @@ export default function CatalogClient({
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalPages = Math.ceil(total / pageSize);
+
+  // Active brand for pricing context
+  const activeBrand = brands.find((b) => b.slug === activeBrandSlug) ?? brands[0] ?? null;
 
   const navigate = useCallback(
     (updates: Record<string, string>) => {
@@ -204,6 +246,18 @@ export default function CatalogClient({
             <option value="dh">D&H</option>
           </select>
 
+          {brands.length > 0 && (
+            <select
+              value={activeBrandSlug}
+              onChange={(e) => navigate({ brand: e.target.value })}
+              className="h-9 px-3 rounded-lg border border-admin-border bg-white text-sm text-admin-text focus:outline-none focus:border-admin-accent transition-all"
+            >
+              {brands.map((b) => (
+                <option key={b.slug} value={b.slug}>{b.name} pricing</option>
+              ))}
+            </select>
+          )}
+
           <label className="flex items-center gap-2 h-9 px-3 rounded-lg border border-admin-border bg-white text-sm text-admin-text cursor-pointer hover:bg-slate-50 transition-colors">
             <input
               type="checkbox"
@@ -229,13 +283,14 @@ export default function CatalogClient({
                 <th className="text-left text-xs font-medium text-admin-text-muted px-4 py-3">Category</th>
                 <th className="text-center text-xs font-medium text-admin-text-muted px-4 py-3">Distributors</th>
                 <th className="text-right text-xs font-medium text-admin-text-muted px-4 py-3">Best Our Cost</th>
+                <th className="text-right text-xs font-medium text-admin-text-muted px-4 py-3">Sell Price</th>
                 <th className="text-right text-xs font-medium text-admin-text-muted px-4 py-3">Total Stock</th>
               </tr>
             </thead>
             <tbody>
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={9} className="text-center py-12">
                     <Package size={40} className="mx-auto text-slate-300 mb-3" />
                     <p className="text-sm text-admin-text-muted">No products found matching your filters</p>
                   </td>
@@ -249,6 +304,7 @@ export default function CatalogClient({
                       product={product}
                       isExpanded={isExpanded}
                       onToggle={() => toggleRow(product.id)}
+                      brand={activeBrand}
                     />
                   );
                 })
@@ -289,15 +345,24 @@ export default function CatalogClient({
   );
 }
 
+// =============================================================================
+// Product Row with Pricing Controls
+// =============================================================================
+
 function ProductRow({
   product,
   isExpanded,
   onToggle,
+  brand,
 }: {
   product: CatalogProduct;
   isExpanded: boolean;
   onToggle: () => void;
+  brand: BrandWithPricing | null;
 }) {
+  // Compute resolved price for the summary row
+  const resolved = computeResolvedPrice(product, brand);
+
   return (
     <>
       <tr
@@ -337,17 +402,32 @@ function ProductRow({
           </span>
         </td>
         <td className="px-4 py-3 text-right">
+          {resolved ? (
+            <div className="flex items-center justify-end gap-1.5">
+              <span className="text-sm font-medium text-admin-text tabular-nums">
+                {formatCents(resolved.sellPriceCents)}
+              </span>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${SOURCE_BADGES[resolved.source]?.class ?? ""}`}>
+                {SOURCE_BADGES[resolved.source]?.label}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm text-admin-text-muted">{"\u2014"}</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-right">
           <span className={`text-sm font-medium tabular-nums ${product.totalStock > 0 ? "text-green-600" : "text-red-500"}`}>
             {product.totalStock.toLocaleString()}
           </span>
         </td>
       </tr>
 
-      {/* Expanded distributor details */}
+      {/* Expanded distributor details + pricing controls */}
       {isExpanded && product.distributors.length > 0 && (
         <tr className="border-b border-admin-border">
-          <td colSpan={8} className="p-0">
-            <div className="bg-slate-50/80 px-6 py-4 ml-10 mr-4 mb-2 mt-0 rounded-lg border border-admin-border/60">
+          <td colSpan={9} className="p-0">
+            <div className="bg-slate-50/80 px-6 py-4 ml-10 mr-4 mb-2 mt-0 rounded-lg border border-admin-border/60 space-y-4">
+              {/* Distributor Table */}
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-admin-text-muted">
@@ -396,10 +476,245 @@ function ProductRow({
                   })}
                 </tbody>
               </table>
+
+              {/* Pricing Controls */}
+              {brand && (
+                <PricingControls
+                  product={product}
+                  brand={brand}
+                />
+              )}
             </div>
           </td>
         </tr>
       )}
     </>
   );
+}
+
+// =============================================================================
+// Inline Pricing Controls
+// =============================================================================
+
+function PricingControls({
+  product,
+  brand,
+}: {
+  product: CatalogProduct;
+  brand: BrandWithPricing;
+}) {
+  const pricingSettings = getBrandPricingSettings(brand.settings);
+  const brandRule = brand.pricingRules.find((r) => !r.categoryId && !r.productId) ?? null;
+  const productRule = brand.pricingRules.find((r) => r.productId === product.id) ?? null;
+
+  const effectiveMarkup = resolveMarkup(
+    brandRule as PricingRuleData | null,
+    null,
+    productRule as PricingRuleData | null,
+  );
+
+  const [overrideMarkup, setOverrideMarkup] = useState(
+    productRule ? String(productRule.markupPercent) : "",
+  );
+  const [manualMap, setManualMap] = useState(
+    productRule?.manualMapCents !== null && productRule?.manualMapCents !== undefined
+      ? String((productRule.manualMapCents / 100).toFixed(2))
+      : "",
+  );
+  const [fixedPrice, setFixedPrice] = useState(
+    productRule?.fixedPriceCents !== null && productRule?.fixedPriceCents !== undefined
+      ? String((productRule.fixedPriceCents / 100).toFixed(2))
+      : "",
+  );
+  const [saving, startSaving] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  // Sync local state when productRule changes (e.g. brand switch or server revalidation)
+  useEffect(() => {
+    setOverrideMarkup(productRule ? String(productRule.markupPercent) : "");
+    setManualMap(
+      productRule?.manualMapCents !== null && productRule?.manualMapCents !== undefined
+        ? String((productRule.manualMapCents / 100).toFixed(2))
+        : "",
+    );
+    setFixedPrice(
+      productRule?.fixedPriceCents !== null && productRule?.fixedPriceCents !== undefined
+        ? String((productRule.fixedPriceCents / 100).toFixed(2))
+        : "",
+    );
+  }, [productRule?.id, productRule?.markupPercent, productRule?.manualMapCents, productRule?.fixedPriceCents]);
+
+  // Best MAP from distributor data
+  const bestDistMap = product.distributors.reduce((best, d) => {
+    if (d.mapCents !== null && (best === null || d.mapCents > best)) return d.mapCents;
+    return best;
+  }, null as number | null);
+
+  // Live price preview
+  const markupForPreview = overrideMarkup ? parseFloat(overrideMarkup) : effectiveMarkup;
+  const manualMapCents = manualMap ? Math.round(parseFloat(manualMap) * 100) : null;
+  const fixedPriceCents = fixedPrice ? Math.round(parseFloat(fixedPrice) * 100) : null;
+
+  const preview = resolvePrice({
+    costCents: product.bestCostCents,
+    mapCents: bestDistMap,
+    manualMapCents,
+    fixedPriceCents,
+    markupPercent: markupForPreview,
+    mapEnabled: pricingSettings.mapEnabled,
+  });
+
+  function handleSave() {
+    startSaving(async () => {
+      await upsertProductPricingRuleAction(brand.id, product.id, {
+        markupPercent: overrideMarkup ? parseFloat(overrideMarkup) : effectiveMarkup,
+        manualMapCents: manualMapCents,
+        fixedPriceCents: fixedPriceCents,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    });
+  }
+
+  function handleReset() {
+    setOverrideMarkup("");
+    setManualMap("");
+    setFixedPrice("");
+  }
+
+  const hasOverride = overrideMarkup || manualMap || fixedPrice;
+
+  return (
+    <div className="border-t border-admin-border/60 pt-3">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-medium text-admin-text-muted uppercase tracking-wider">
+          Pricing for {brand.name}
+        </span>
+        {!hasOverride && (
+          <span className="text-xs text-admin-text-muted">
+            (inheriting {effectiveMarkup}% from {productRule ? "product" : "brand default"})
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="min-w-[100px]">
+          <label className="block text-xs font-medium text-admin-text-muted mb-1">Override Markup %</label>
+          <input
+            type="number"
+            step="0.5"
+            min="0"
+            max="200"
+            placeholder={String(effectiveMarkup)}
+            value={overrideMarkup}
+            onChange={(e) => setOverrideMarkup(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full h-8 px-2.5 rounded-md border border-admin-border bg-white text-sm text-admin-text text-right tabular-nums focus:outline-none focus:border-admin-accent transition-all"
+          />
+        </div>
+        <div className="min-w-[120px]">
+          <label className="block text-xs font-medium text-admin-text-muted mb-1">Manual MAP $</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder={bestDistMap !== null ? (bestDistMap / 100).toFixed(2) : "none"}
+            value={manualMap}
+            onChange={(e) => setManualMap(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full h-8 px-2.5 rounded-md border border-admin-border bg-white text-sm text-admin-text text-right tabular-nums focus:outline-none focus:border-admin-accent transition-all"
+          />
+        </div>
+        <div className="min-w-[120px]">
+          <label className="block text-xs font-medium text-admin-text-muted mb-1">Fixed Price $</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={fixedPrice}
+            onChange={(e) => setFixedPrice(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full h-8 px-2.5 rounded-md border border-admin-border bg-white text-sm text-admin-text text-right tabular-nums focus:outline-none focus:border-admin-accent transition-all"
+          />
+        </div>
+
+        {/* Live preview */}
+        <div className="min-w-[140px] bg-white rounded-md border border-admin-border px-3 py-1.5">
+          <div className="text-[10px] font-medium text-admin-text-muted uppercase">Sell Price</div>
+          {preview ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-admin-text tabular-nums">
+                {formatCents(preview.sellPriceCents)}
+              </span>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${SOURCE_BADGES[preview.source]?.class ?? ""}`}>
+                {SOURCE_BADGES[preview.source]?.label}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm text-admin-text-muted">No cost</span>
+          )}
+          {preview && (
+            <div className="text-[10px] text-admin-text-muted tabular-nums">
+              {preview.marginPercent}% margin
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleSave(); }}
+            disabled={saving}
+            className="flex items-center gap-1 h-8 px-3 text-xs font-medium bg-admin-accent text-white rounded-md hover:bg-blue-600 disabled:opacity-50 transition-colors"
+          >
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            {saved ? "Saved" : "Save"}
+          </button>
+          {hasOverride && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleReset(); }}
+              className="flex items-center gap-1 h-8 px-2.5 text-xs font-medium text-admin-text-muted hover:text-admin-text rounded-md border border-admin-border hover:bg-white transition-colors"
+            >
+              <RotateCcw size={12} />
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Price Resolution Helper
+// =============================================================================
+
+function computeResolvedPrice(
+  product: CatalogProduct,
+  brand: BrandWithPricing | null,
+) {
+  if (!brand) return null;
+
+  const pricingSettings = getBrandPricingSettings(brand.settings);
+  const brandRule = brand.pricingRules.find((r) => !r.categoryId && !r.productId) ?? null;
+  const productRule = brand.pricingRules.find((r) => r.productId === product.id) ?? null;
+
+  const markup = resolveMarkup(
+    brandRule as PricingRuleData | null,
+    null,
+    productRule as PricingRuleData | null,
+  );
+
+  const bestDistMap = product.distributors.reduce((best, d) => {
+    if (d.mapCents !== null && (best === null || d.mapCents > best)) return d.mapCents;
+    return best;
+  }, null as number | null);
+
+  return resolvePrice({
+    costCents: product.bestCostCents,
+    mapCents: bestDistMap,
+    manualMapCents: productRule?.manualMapCents ?? null,
+    fixedPriceCents: productRule?.fixedPriceCents ?? null,
+    markupPercent: markup,
+    mapEnabled: pricingSettings.mapEnabled,
+  });
 }

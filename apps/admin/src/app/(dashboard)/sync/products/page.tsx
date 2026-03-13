@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { Suspense } from "react";
 import { getDiscoveredProducts, getTopVendors } from "@/lib/db/queries";
 import DiscoveryClient from "./discovery-client";
 
@@ -21,15 +22,17 @@ export default async function ProductDiscoveryPage({
   ]);
 
   return (
-    <DiscoveryClient
-      products={products}
-      total={total}
-      page={page}
-      pageSize={pageSize}
-      search={search}
-      vendor={vendor}
-      status={status}
-      vendors={vendors}
-    />
+    <Suspense fallback={<div>Loading...</div>}>
+      <DiscoveryClient
+        products={products}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        search={search}
+        vendor={vendor}
+        status={status}
+        vendors={vendors}
+      />
+    </Suspense>
   );
 }

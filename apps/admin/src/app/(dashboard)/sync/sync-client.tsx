@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   RefreshCw,
   Database,
@@ -27,15 +28,15 @@ interface SyncJob {
   itemsUpdated: number;
   itemsFailed: number;
   errorLog: unknown;
-  startedAt: Date;
-  completedAt: Date | null;
+  startedAt: string;
+  completedAt: string | null;
 }
 
 interface SyncStats {
   totalSyncProducts: number;
   totalListings: number;
   unresolvedBrandsCount: number;
-  lastSyncAt: Date | null;
+  lastSyncAt: string | null;
   vendorCount: number;
   inStockCount: number;
   multiDistributorCount: number;
@@ -46,7 +47,7 @@ interface Props {
   stats: SyncStats;
 }
 
-function formatDuration(start: Date, end: Date | null): string {
+function formatDuration(start: string, end: string | null): string {
   if (!end) return "Running...";
   const ms = new Date(end).getTime() - new Date(start).getTime();
   if (ms < 1000) return `${ms}ms`;
@@ -59,6 +60,10 @@ function formatJobType(type: string): string {
     case "full_catalog": return "Full Catalog";
     case "incremental_pna": return "Incremental P&A";
     case "webhook_update": return "Webhook Update";
+    case "ftp_catalog": return "FTP Catalog";
+    case "ftp_stock": return "FTP Stock";
+    case "ftp_catalog_sync": return "FTP Catalog Sync";
+    case "ftp_stock_sync": return "FTP Stock Sync";
     default: return type;
   }
 }
@@ -93,8 +98,17 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function SyncDashboardClient({ initialJobs, stats }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Poll for live updates every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [router]);
 
   async function handleTrigger(type: "full_catalog" | "incremental", tier?: "hot" | "standard" | "cold") {
     setLoading(tier ?? type);
@@ -107,6 +121,7 @@ export default function SyncDashboardClient({ initialJobs, stats }: Props) {
     }
 
     setLoading(null);
+    router.refresh();
   }
 
   return (

@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { Suspense } from "react";
 import { getUnresolvedBrands, getTopVendors } from "@/lib/db/queries";
 import BrandsClient from "./brands-client";
 
@@ -19,13 +20,15 @@ export default async function BrandResolutionPage({
   ]);
 
   return (
-    <BrandsClient
-      brands={brands}
-      total={total}
-      page={page}
-      pageSize={pageSize}
-      search={search}
-      vendors={vendors}
-    />
+    <Suspense fallback={<div>Loading...</div>}>
+      <BrandsClient
+        brands={brands}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        search={search}
+        vendors={vendors}
+      />
+    </Suspense>
   );
 }

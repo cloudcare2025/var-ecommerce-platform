@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -9,6 +10,7 @@ import {
   Plus,
   Trash2,
   ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { BRAND_SLUGS } from "@var/shared";
 import { createProductAction } from "@/lib/db/actions";
@@ -20,6 +22,7 @@ interface Feature {
 }
 
 export default function NewProductPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [sku, setSku] = useState("");
@@ -37,6 +40,8 @@ export default function NewProductPage() {
   const [features, setFeatures] = useState<Feature[]>([
     { id: "1", key: "", value: "" },
   ]);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function handleNameChange(value: string) {
     setName(value);
@@ -73,29 +78,59 @@ export default function NewProductPage() {
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const formData = new FormData();
-    formData.set("name", name);
-    formData.set("slug", slug);
-    formData.set("sku", sku);
-    formData.set("mpn", mpn);
-    formData.set("description", description);
-    formData.set("vendor", vendor);
-    formData.set("category", category);
-    formData.set("costPrice", costPrice);
-    formData.set("sellPrice", sellPrice);
-    formData.set("compareAtPrice", compareAtPrice);
-    formData.set("stock", stock);
-    formData.set("lowStockThreshold", lowStockThreshold);
-    formData.set("status", status);
-    formData.set("selectedBrands", selectedBrands.join(","));
+  async function handleSubmit(e?: React.FormEvent, overrideStatus?: string) {
+    if (e) e.preventDefault();
+    setSaving(true);
+    setFormError(null);
 
-    const result = await createProductAction(formData);
-    if (result.success) {
-      window.location.href = "/products";
-    } else {
-      alert(result.error || "Failed to create product");
+    if (!name.trim()) {
+      setFormError("Product name is required.");
+      setSaving(false);
+      return;
+    }
+    if (!sku.trim()) {
+      setFormError("SKU is required.");
+      setSaving(false);
+      return;
+    }
+    if (!vendor) {
+      setFormError("Vendor is required.");
+      setSaving(false);
+      return;
+    }
+    if (!sellPrice || isNaN(parseFloat(sellPrice)) || parseFloat(sellPrice) <= 0) {
+      setFormError("A valid sell price is required.");
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.set("name", name);
+      formData.set("slug", slug);
+      formData.set("sku", sku);
+      formData.set("mpn", mpn);
+      formData.set("description", description);
+      formData.set("vendor", vendor);
+      formData.set("category", category);
+      formData.set("costPrice", costPrice);
+      formData.set("sellPrice", sellPrice);
+      formData.set("compareAtPrice", compareAtPrice);
+      formData.set("stock", stock);
+      formData.set("lowStockThreshold", lowStockThreshold);
+      formData.set("status", overrideStatus ?? status);
+      formData.set("selectedBrands", selectedBrands.join(","));
+
+      const result = await createProductAction(formData);
+      if (result.success) {
+        router.push("/products");
+      } else {
+        setFormError(result.error || "Failed to create product");
+      }
+    } catch (err) {
+      setFormError("An unexpected error occurred. Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -120,21 +155,49 @@ export default function NewProductPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="h-10 px-4 border border-admin-border rounded-lg text-sm font-medium text-admin-text hover:bg-slate-50 transition-colors"
+            disabled={saving}
+            onClick={() => handleSubmit(undefined, "draft")}
+            className="h-10 px-4 border border-admin-border rounded-lg text-sm font-medium text-admin-text hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save as Draft
+            {saving ? (
+              <span className="flex items-center gap-2">
+                <Loader2 size={16} className="animate-spin" />
+                Saving...
+              </span>
+            ) : (
+              "Save as Draft"
+            )}
           </button>
           <button
-            onClick={handleSubmit}
-            className="flex items-center gap-2 h-10 px-4 bg-admin-accent hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+            disabled={saving}
+            onClick={(e) => handleSubmit(e, "active")}
+            className="flex items-center gap-2 h-10 px-4 bg-admin-accent hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save size={16} />
+            {saving ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
             Publish Product
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {formError && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <span className="font-medium">Error:</span>
+          <span>{formError}</span>
+          <button
+            type="button"
+            onClick={() => setFormError(null)}
+            className="ml-auto text-red-400 hover:text-red-600 transition-colors"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      <form onSubmit={(e) => handleSubmit(e, "active")} className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left column - Main info */}
         <div className="xl:col-span-2 space-y-6">
           {/* General Information */}
@@ -147,6 +210,7 @@ export default function NewProductPage() {
                 </label>
                 <input
                   type="text"
+                  required
                   value={name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="e.g., SonicWall TZ270"
@@ -172,6 +236,7 @@ export default function NewProductPage() {
                   </label>
                   <input
                     type="text"
+                    required
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
                     placeholder="SW-TZ270-01"
@@ -215,17 +280,18 @@ export default function NewProductPage() {
                   Vendor <span className="text-admin-danger">*</span>
                 </label>
                 <select
+                  required
                   value={vendor}
                   onChange={(e) => setVendor(e.target.value)}
                   className="w-full h-10 px-4 rounded-lg border border-admin-border bg-white text-sm text-admin-text focus:outline-none focus:ring-2 focus:ring-admin-accent/20 focus:border-admin-accent transition-all"
                 >
                   <option value="">Select vendor</option>
-                  <option value="SonicWall">SonicWall</option>
-                  <option value="Fortinet">Fortinet</option>
-                  <option value="Cisco">Cisco</option>
-                  <option value="Palo Alto Networks">Palo Alto Networks</option>
-                  <option value="WatchGuard">WatchGuard</option>
-                  <option value="Aruba">Aruba</option>
+                  <option value="sonicwall">SonicWall</option>
+                  <option value="fortinet">Fortinet</option>
+                  <option value="cisco">Cisco</option>
+                  <option value="palo-alto-networks">Palo Alto Networks</option>
+                  <option value="watchguard">WatchGuard</option>
+                  <option value="aruba">Aruba</option>
                 </select>
               </div>
               <div>
@@ -278,6 +344,7 @@ export default function NewProductPage() {
                   <input
                     type="number"
                     step="0.01"
+                    required
                     value={sellPrice}
                     onChange={(e) => setSellPrice(e.target.value)}
                     placeholder="0.00"
@@ -302,7 +369,7 @@ export default function NewProductPage() {
                 </div>
               </div>
             </div>
-            {costPrice && sellPrice && (
+            {costPrice && sellPrice && !isNaN(parseFloat(costPrice)) && !isNaN(parseFloat(sellPrice)) && parseFloat(sellPrice) > 0 && (
               <div className="mt-3 px-3 py-2 bg-green-50 rounded-lg">
                 <p className="text-xs text-green-700 font-medium">
                   Margin: {((1 - parseFloat(costPrice) / parseFloat(sellPrice)) * 100).toFixed(1)}% &middot; Markup: $
@@ -445,7 +512,7 @@ export default function NewProductPage() {
                     onChange={() => toggleBrand(brand)}
                     className="w-4 h-4 rounded border-admin-border text-admin-accent focus:ring-admin-accent"
                   />
-                  <span className="text-sm text-admin-text capitalize">{brand.replace("-", " ")}</span>
+                  <span className="text-sm text-admin-text capitalize">{brand.replace(/-/g, " ")}</span>
                 </label>
               ))}
             </div>

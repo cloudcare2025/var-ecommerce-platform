@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   Bell,
@@ -45,9 +46,9 @@ function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
 export default function Header() {
   const pathname = usePathname();
   const breadcrumbs = getBreadcrumbs(pathname);
-  const { collapsed, setMobileOpen } = useSidebarStore();
+  const router = useRouter();
+  const { setMobileOpen } = useSidebarStore();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,12 +63,7 @@ export default function Header() {
 
   return (
     <header
-      className={`
-        sticky top-0 z-30 h-16 bg-white border-b border-admin-border
-        flex items-center justify-between px-6
-        transition-all duration-300
-        ${collapsed ? "lg:ml-[72px]" : "lg:ml-[280px]"}
-      `}
+      className="sticky top-0 z-30 h-16 bg-white border-b border-admin-border flex items-center justify-between px-6"
     >
       {/* Left: mobile menu + breadcrumbs */}
       <div className="flex items-center gap-4">
@@ -83,12 +79,12 @@ export default function Header() {
             <span key={idx} className="flex items-center gap-1">
               {idx > 0 && <ChevronRight size={14} className="text-slate-300" />}
               {crumb.href ? (
-                <a
+                <Link
                   href={crumb.href}
                   className="text-admin-text-muted hover:text-admin-text transition-colors"
                 >
                   {crumb.label}
-                </a>
+                </Link>
               ) : (
                 <span className="text-admin-text font-medium">{crumb.label}</span>
               )}
@@ -100,21 +96,19 @@ export default function Header() {
       {/* Right: search, notifications, user */}
       <div className="flex items-center gap-2">
         {/* Search */}
-        <div className={`relative hidden md:block transition-all duration-200 ${searchFocused ? "w-72" : "w-56"}`}>
+        <div className="relative hidden md:block w-56">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search..."
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            className="w-full h-9 pl-9 pr-3 rounded-lg bg-slate-100 border border-transparent text-sm text-admin-text placeholder:text-slate-400 focus:outline-none focus:border-admin-accent focus:bg-white transition-all"
+            placeholder="Search coming soon..."
+            disabled
+            className="w-full h-9 pl-9 pr-3 rounded-lg bg-slate-100 border border-transparent text-sm text-admin-text placeholder:text-slate-400 opacity-60 cursor-not-allowed"
           />
         </div>
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600">
+        <button disabled className="relative p-2 rounded-lg transition-colors text-slate-600 opacity-60 cursor-not-allowed">
           <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-admin-danger rounded-full" />
         </button>
 
         {/* User menu */}
@@ -139,17 +133,28 @@ export default function Header() {
                 <div className="text-xs text-admin-text-muted">nick@a5it.com</div>
               </div>
               <div className="py-1">
-                <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-admin-text hover:bg-slate-50 transition-colors">
+                {/* TODO: Create /profile route */}
+                <button
+                  onClick={() => { setUserMenuOpen(false); /* router.push('/profile') */ }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-admin-text hover:bg-slate-50 transition-colors"
+                >
                   <User size={16} className="text-slate-400" />
                   My Profile
                 </button>
-                <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-admin-text hover:bg-slate-50 transition-colors">
+                {/* TODO: Create /settings route */}
+                <button
+                  onClick={() => { setUserMenuOpen(false); /* router.push('/settings') */ }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-admin-text hover:bg-slate-50 transition-colors"
+                >
                   <Settings size={16} className="text-slate-400" />
                   Settings
                 </button>
               </div>
               <div className="border-t border-admin-border pt-1">
-                <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-admin-danger hover:bg-red-50 transition-colors">
+                <button
+                  onClick={() => { setUserMenuOpen(false); router.push('/login'); }}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-admin-danger hover:bg-red-50 transition-colors"
+                >
                   <LogOut size={16} />
                   Sign Out
                 </button>

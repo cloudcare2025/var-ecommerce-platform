@@ -22,6 +22,11 @@ export const ORDER_STATUSES = {
     color: "#F59E0B",
     description: "Order received, awaiting processing",
   },
+  confirmed: {
+    label: "Confirmed",
+    color: "#0EA5E9",
+    description: "Order confirmed, awaiting processing",
+  },
   processing: {
     label: "Processing",
     color: "#3B82F6",
@@ -57,10 +62,8 @@ export type OrderStatus = keyof typeof ORDER_STATUSES;
 export const PAYMENT_METHODS = {
   credit_card: { label: "Credit Card" },
   ach: { label: "ACH Bank Transfer" },
+  net_terms: { label: "Net Terms" },
   wire: { label: "Wire Transfer" },
-  purchase_order: { label: "Purchase Order" },
-  net_30: { label: "Net 30" },
-  net_60: { label: "Net 60" },
 } as const;
 
 export type PaymentMethod = keyof typeof PAYMENT_METHODS;
@@ -73,21 +76,25 @@ export const USER_ROLES = {
     label: "Super Admin",
     permissions: "Full system access across all brands",
   },
-  brand_admin: {
-    label: "Brand Admin",
+  admin: {
+    label: "Admin",
     permissions: "Full access within assigned brand",
   },
-  brand_editor: {
-    label: "Brand Editor",
-    permissions: "Edit products, orders, and content for assigned brand",
+  manager: {
+    label: "Manager",
+    permissions: "Manage products, orders, and content for assigned brand",
   },
-  brand_viewer: {
-    label: "Brand Viewer",
-    permissions: "Read-only access to assigned brand data",
+  sales_rep: {
+    label: "Sales Rep",
+    permissions: "Create and manage orders and customer accounts",
   },
-  customer: {
-    label: "Customer",
-    permissions: "Storefront access, order history, account management",
+  warehouse: {
+    label: "Warehouse",
+    permissions: "Manage inventory, fulfillment, and shipping",
+  },
+  viewer: {
+    label: "Viewer",
+    permissions: "Read-only access to brand data",
   },
 } as const;
 

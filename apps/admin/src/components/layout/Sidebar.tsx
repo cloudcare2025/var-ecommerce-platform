@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -79,14 +79,30 @@ const navigation: NavGroupConfig[] = [
   },
 ];
 
-function isActive(pathname: string, href: string): boolean {
+function isActive(pathname: string, href: string, currentParams: URLSearchParams): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";
-  const basePath = href.split("?")[0];
-  return pathname.startsWith(basePath);
+  const [basePath, queryString] = href.split("?");
+  // If the nav item has query params (e.g. /products?tab=categories),
+  // require both the path and the query params to match exactly.
+  if (queryString) {
+    const hrefParams = new URLSearchParams(queryString);
+    if (pathname !== basePath) return false;
+    for (const [key, value] of hrefParams.entries()) {
+      if (currentParams.get(key) !== value) return false;
+    }
+    return true;
+  }
+  // For items without query params, match the path but NOT if the current
+  // URL has query params that belong to a sibling nav item.
+  if (pathname === basePath) {
+    return !currentParams.has("tab");
+  }
+  return pathname.startsWith(basePath + "/");
 }
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { collapsed, mobileOpen, toggleCollapsed, setMobileOpen } = useSidebarStore();
 
   return (
@@ -147,7 +163,7 @@ export default function Sidebar() {
               )}
               <ul className="space-y-0.5">
                 {group.items.map((item) => {
-                  const active = isActive(pathname, item.href);
+                  const active = isActive(pathname, item.href, searchParams);
                   return (
                     <li key={item.href}>
                       <Link

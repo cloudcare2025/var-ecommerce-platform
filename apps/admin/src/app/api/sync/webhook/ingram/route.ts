@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 import { handleIngramWebhook, type IngramWebhookPayload } from "@var/sync";
 
+function validateApiKey(request: Request): boolean {
+  const expected = process.env.SYNC_API_KEY;
+  if (!expected) return false;
+  const key = request.headers.get("authorization")?.replace("Bearer ", "");
+  return key === expected;
+}
+
 export async function POST(request: Request) {
+  if (!validateApiKey(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let payload: IngramWebhookPayload;
 
   try {

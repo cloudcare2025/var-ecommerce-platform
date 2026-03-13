@@ -152,7 +152,7 @@ export async function getDashboardStats() {
     revenueCents: currentRevenue,
     revenueChange: percentChange(currentRevenue, previousRevenue),
     activeProducts,
-    activeProductsChange: activeProducts - previousMonthProducts,
+    activeProductsChange: percentChange(activeProducts, previousMonthProducts),
     activeCustomers,
     activeCustomersChange: percentChange(activeCustomers, previousMonthCustomers),
   };
@@ -780,6 +780,88 @@ export async function getBrandBySlug(slug: string) {
 }
 
 // =============================================================================
+// Brands with Pricing (for catalog page brand selector)
+// =============================================================================
+
+export async function getBrandsWithPricing() {
+  const brands = await prisma.brand.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      settings: true,
+      pricingRules: {
+        select: {
+          id: true,
+          categoryId: true,
+          productId: true,
+          markupPercent: true,
+          fixedPriceCents: true,
+          manualMapCents: true,
+        },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return brands.map((b) => ({
+    id: b.id,
+    slug: b.slug,
+    name: b.name,
+    settings: b.settings,
+    pricingRules: b.pricingRules.map((r) => ({
+      id: r.id,
+      categoryId: r.categoryId,
+      productId: r.productId,
+      markupPercent: r.markupPercent,
+      fixedPriceCents: r.fixedPriceCents !== null ? Number(r.fixedPriceCents) : null,
+      manualMapCents: r.manualMapCents !== null ? Number(r.manualMapCents) : null,
+    })),
+  }));
+}
+
+// =============================================================================
+// Pricing Rules
+// =============================================================================
+
+export async function getPricingRules(brandId: string) {
+  const rules = await prisma.pricingRule.findMany({
+    where: { brandId },
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+      syncProduct: { select: { id: true, mpn: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rules.map((r) => ({
+    id: r.id,
+    brandId: r.brandId,
+    categoryId: r.categoryId,
+    categoryName: r.category?.name ?? null,
+    categorySlug: r.category?.slug ?? null,
+    productId: r.productId,
+    productMpn: r.syncProduct?.mpn ?? null,
+    productName: r.syncProduct?.name ?? null,
+    markupPercent: r.markupPercent,
+    fixedPriceCents: r.fixedPriceCents !== null ? Number(r.fixedPriceCents) : null,
+    manualMapCents: r.manualMapCents !== null ? Number(r.manualMapCents) : null,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  }));
+}
+
+export async function getBrandCategories(brandId: string) {
+  const categories = await prisma.category.findMany({
+    where: { brandId },
+    select: { id: true, name: true, slug: true },
+    orderBy: { name: "asc" },
+  });
+  return categories;
+}
+
+// =============================================================================
 // Users
 // =============================================================================
 
@@ -1061,7 +1143,7 @@ export async function getDiscoveredProducts(params: {
 }) {
   const { search, vendor, status = "discovered", page = 1, pageSize = 25 } = params;
 
-  const where: Record<string, unknown> = {
+  const where: Prisma.SyncProductWhereInput = {
     importStatus: status,
   };
 
@@ -1145,7 +1227,7 @@ export async function getCatalogProducts(params: {
 }) {
   const { search, vendor, distributor, inStock, page = 1, pageSize = 50 } = params;
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.SyncProductWhereInput = {};
 
   if (search) {
     where.OR = [
@@ -1169,7 +1251,6 @@ export async function getCatalogProducts(params: {
 
   // Filter for in-stock only
   if (inStock) {
-    where.OR = where.OR ?? undefined;
     const stockFilter = {
       OR: [
         { ingramListings: { some: { totalQuantity: { gt: 0 } } } },
@@ -1204,7 +1285,12 @@ export async function getCatalogProducts(params: {
       where,
       include: {
         vendor: { select: { name: true, slug: true } },
-        ingramListings: listingSelect,
+        ingramListings: {
+          select: {
+            ...listingSelect.select,
+            mapPrice: true,
+          },
+        },
         synnexListings: listingSelect,
         dhListings: {
           select: {
@@ -1339,7 +1425,7 @@ export async function getUnresolvedBrands(params: {
 }) {
   const { search, page = 1, pageSize = 25 } = params;
 
-  const where: Record<string, unknown> = { resolutionStatus: "pending" };
+  const where: Prisma.UnresolvedBrandWhereInput = { resolutionStatus: "pending" };
   if (search) {
     where.rawValue = { contains: search, mode: "insensitive" };
   }
@@ -1405,12 +1491,12 @@ export async function getVendors(params: {
 }) {
   const { search, page = 1, pageSize = 50, sort = "products" } = params;
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.VendorWhereInput = {};
   if (search) {
     where.name = { contains: search, mode: "insensitive" };
   }
 
-  const orderBy: Record<string, unknown> =
+  const orderBy: Prisma.VendorOrderByWithRelationInput =
     sort === "name"
       ? { name: "asc" }
       : sort === "listings"

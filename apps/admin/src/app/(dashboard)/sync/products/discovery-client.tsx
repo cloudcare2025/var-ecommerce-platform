@@ -27,6 +27,7 @@ interface DiscoveredProduct {
 }
 
 interface VendorOption {
+  id: string;
   name: string;
   slug: string;
 }

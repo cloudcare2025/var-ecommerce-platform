@@ -9,5 +9,16 @@ export default async function SyncPage() {
     getSyncStats(),
   ]);
 
-  return <SyncDashboardClient initialJobs={jobs} stats={stats} />;
+  // Serialize Date objects to ISO strings for client component
+  const serializedJobs = jobs.map((job) => ({
+    ...job,
+    startedAt: job.startedAt.toISOString(),
+    completedAt: job.completedAt?.toISOString() ?? null,
+  }));
+  const serializedStats = {
+    ...stats,
+    lastSyncAt: stats.lastSyncAt?.toISOString() ?? null,
+  };
+
+  return <SyncDashboardClient initialJobs={serializedJobs} stats={serializedStats} />;
 }

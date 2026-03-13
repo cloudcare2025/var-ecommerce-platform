@@ -98,7 +98,8 @@ export default function BrandsClient({
   }, [searchInput, initialSearch, navigate]);
 
   async function handleResolve(brandId: string) {
-    const vendorId = selectedVendors[brandId];
+    const brand = brands.find((b) => b.id === brandId);
+    const vendorId = selectedVendors[brandId] ?? brand?.suggestedVendorId;
     if (!vendorId) return;
 
     setActionLoading(brandId);

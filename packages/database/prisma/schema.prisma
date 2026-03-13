@@ -102,6 +102,7 @@ model Brand {
   brandCategories BrandCategory[]
   orders          Order[]
   pageContent     PageContent[]
+  pricingRules    PricingRule[]
 
   @@index([slug])
   @@index([domain])
@@ -271,6 +272,7 @@ model Category {
 
   productMappings CategoryProduct[]
   brandCategories BrandCategory[]
+  pricingRules    PricingRule[]
 
   @@unique([brandId, slug])
   @@index([brandId])
@@ -750,6 +752,7 @@ model SyncProduct {
   synnexListings SynnexListing[] @relation("SynnexListings")
   dhListings     DhListing[]     @relation("DhListings")
   tier           ProductTier?
+  pricingRules   PricingRule[]
 
   @@unique([vendorId, mpn])
   @@index([vendorId])
@@ -768,6 +771,7 @@ model IngramListing {
   costPrice        BigInt?     @map("cost_price")
   retailPrice      BigInt?     @map("retail_price")
   sellPrice        BigInt?     @map("sell_price")
+  mapPrice         BigInt?     @map("map_price")
   totalQuantity    BigInt      @default(0) @map("total_quantity")
   rawVendorName    String?     @map("raw_vendor_name")
   rawMfgCode       String?     @map("raw_mfg_code")
@@ -941,4 +945,34 @@ model FtpSyncState {
 
   @@unique([distributor, feedType])
   @@map("ftp_sync_state")
+}
+
+// =============================================================================
+// PRICING RULES (brand → category → product override hierarchy)
+// =============================================================================
+
+model PricingRule {
+  id              String       @id @default(cuid())
+  brandId         String       @map("brand_id")
+  brand           Brand        @relation(fields: [brandId], references: [id])
+
+  // Scope: null = brand default, set = category or product override
+  categoryId      String?      @map("category_id")
+  category        Category?    @relation(fields: [categoryId], references: [id])
+  productId       String?      @map("product_id")
+  syncProduct     SyncProduct? @relation(fields: [productId], references: [id])
+
+  // Pricing config
+  markupPercent   Float        @default(15.0) @map("markup_percent")
+  fixedPriceCents BigInt?      @map("fixed_price_cents")
+  manualMapCents  BigInt?      @map("manual_map_cents")
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // One rule per scope level
+  @@unique([brandId, categoryId, productId])
+  @@index([brandId])
+  @@index([productId])
+  @@map("pricing_rules")
 }

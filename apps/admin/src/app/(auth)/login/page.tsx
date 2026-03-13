@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Shield, Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
@@ -9,6 +9,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +33,7 @@ export default function LoginPage() {
     setLoading(true);
 
     // Simulated login — in production this hits the auth API
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       if (email === "nick@a5it.com" && password === "admin") {
         window.location.href = "/dashboard";
       } else {
@@ -111,17 +118,11 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-admin-border text-admin-accent focus:ring-admin-accent"
-                />
-                <span className="text-sm text-admin-text-muted">Remember me</span>
-              </label>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
-                className="text-sm text-admin-accent hover:text-blue-700 font-medium transition-colors"
+                disabled
+                className="text-sm text-admin-text-muted font-medium cursor-not-allowed opacity-50"
               >
                 Forgot password?
               </button>
@@ -143,9 +144,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-xs text-admin-text-muted mt-6">
-            Demo credentials: nick@a5it.com / admin
-          </p>
         </div>
 
         <p className="text-center text-xs text-slate-600 mt-6">

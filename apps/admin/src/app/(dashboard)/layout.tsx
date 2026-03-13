@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { useSidebarStore } from "@/lib/store";
@@ -13,7 +14,9 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-admin-bg">
-      <Sidebar />
+      <Suspense>
+        <Sidebar />
+      </Suspense>
       <div
         className={`transition-all duration-300 ${
           collapsed ? "lg:ml-[72px]" : "lg:ml-[280px]"

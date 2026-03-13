@@ -218,25 +218,26 @@ function cuid(): string {
 const INGRAM_LISTING_UPSERT = `
   INSERT INTO ingram_listings (
     id, sync_product_id, distributor_sku, vendor_part_number,
-    cost_price, retail_price, sell_price, total_quantity,
+    cost_price, retail_price, sell_price, map_price, total_quantity,
     raw_vendor_name, raw_mfg_code, category, sub_category, vendor_number,
     last_synced_at, created_at, updated_at
   )
   SELECT u.id, u.sp_id, u.sku, u.vpn,
-    u.cost, u.retail, u.sell, u.qty,
+    u.cost, u.retail, u.sell, u.map, u.qty,
     u.rvn, u.rmc, u.cat, u.sub, u.vnum,
     NOW(), NOW(), NOW()
   FROM UNNEST(
     $1::text[], $2::text[], $3::text[], $4::text[],
-    $5::bigint[], $6::bigint[], $7::bigint[], $8::bigint[],
-    $9::text[], $10::text[], $11::text[], $12::text[], $13::text[]
-  ) AS u(id, sp_id, sku, vpn, cost, retail, sell, qty, rvn, rmc, cat, sub, vnum)
+    $5::bigint[], $6::bigint[], $7::bigint[], $8::bigint[], $9::bigint[],
+    $10::text[], $11::text[], $12::text[], $13::text[], $14::text[]
+  ) AS u(id, sp_id, sku, vpn, cost, retail, sell, map, qty, rvn, rmc, cat, sub, vnum)
   ON CONFLICT (distributor_sku) DO UPDATE SET
     sync_product_id = EXCLUDED.sync_product_id,
     vendor_part_number = COALESCE(EXCLUDED.vendor_part_number, ingram_listings.vendor_part_number),
     cost_price = EXCLUDED.cost_price,
     retail_price = EXCLUDED.retail_price,
     sell_price = EXCLUDED.sell_price,
+    map_price = COALESCE(EXCLUDED.map_price, ingram_listings.map_price),
     total_quantity = EXCLUDED.total_quantity,
     raw_vendor_name = EXCLUDED.raw_vendor_name,
     raw_mfg_code = EXCLUDED.raw_mfg_code,
@@ -553,6 +554,7 @@ async function upsertIngramListings(
   const costs: (number | null)[] = [];
   const retails: (number | null)[] = [];
   const sells: (number | null)[] = [];
+  const maps: (number | null)[] = [];
   const qtys: (number | null)[] = [];
   const rvns: (string | null)[] = [];
   const rmcs: (string | null)[] = [];
@@ -575,6 +577,7 @@ async function upsertIngramListings(
     costs.push(item.costPrice);
     retails.push(item.retailPrice ?? null);
     sells.push(sellPrice);
+    maps.push(item.mapPrice ?? null);
     qtys.push(item.totalQuantity);
     rvns.push(item.rawVendorName);
     rmcs.push(item.rawMfgCode);
@@ -588,7 +591,7 @@ async function upsertIngramListings(
   await prisma.$executeRawUnsafe(
     INGRAM_LISTING_UPSERT,
     ids, spIds, skus, vpns,
-    costs, retails, sells, qtys,
+    costs, retails, sells, maps, qtys,
     rvns, rmcs, cats, subs, vnums,
   );
 
