@@ -7,12 +7,12 @@
  */
 
 import { prisma } from "@var/database";
-import { downloadPriceFile } from "../clients/ingram-ftp";
-import { downloadCatalogFile as downloadSynnexCatalog } from "../clients/synnex-ftp";
-import { downloadCatalogFiles as downloadDhCatalog } from "../clients/dh-ftp";
+import { downloadPriceFile, getRemoteFileInfo as getIngramRemoteFileInfo } from "../clients/ingram-ftp";
+import { downloadInvReport as downloadSynnexInvReport, downloadInvDelta as downloadSynnexInvDelta, getRemoteFileInfo as getSynnexRemoteFileInfo } from "../clients/synnex-ftp";
+import { downloadCatalogFiles as downloadDhCatalog, getRemoteFileInfo as getDhRemoteFileInfo } from "../clients/dh-ftp";
 import { parseIngramPriceFile } from "../parsers/ingram-price";
 import { loadStockMap } from "../parsers/ingram-stock";
-import { parseSynnexCatalogFile } from "../parsers/synnex-catalog";
+import { parseSynnexInvReport, parseSynnexInvDelta } from "../parsers/synnex-inv-report";
 import { parseDhCatalogFile } from "../parsers/dh-catalog";
 import { parseDhCategoryFile } from "../parsers/dh-category";
 import { bulkUpsertFromFtp, type ParsedRecord } from "../pipelines/bulk-upsert";
@@ -33,7 +33,7 @@ export interface SyncJobResult {
   durationMs: number;
 }
 
-type Distributor = "ingram" | "synnex" | "dh";
+type Distributor = "ingram" | "synnex" | "dh" | "synnex-delta";
 
 // ---------------------------------------------------------------------------
 // FTP Sync State Management
@@ -126,6 +126,16 @@ async function syncIngramCatalog(): Promise<SyncJobResult> {
   const feedType = "catalog";
 
   await getOrCreateSyncState(distributor, feedType);
+
+  // Check if remote file has changed before downloading
+  const remoteInfo = await getIngramRemoteFileInfo("price");
+  if (remoteInfo) {
+    const changed = await shouldSync(distributor, feedType, remoteInfo.size, remoteInfo.modified);
+    if (!changed) {
+      return { jobId: "", distributor, itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, itemsFailed: 0, durationMs: 0 };
+    }
+  }
+
   await markRunning(distributor, feedType);
 
   const job = await prisma.syncJob.create({
@@ -159,8 +169,8 @@ async function syncIngramCatalog(): Promise<SyncJobResult> {
           description: rec.description,
           category: rec.category,
           subCategory: rec.subCategory,
-          rawVendorName: rec.vendorName,
-          rawMfgCode: rec.vendorCode,
+          rawVendorName: rec.vendorName || null,
+          rawMfgCode: rec.vendorCode || null,
           costPrice: rec.customerPrice,
           retailPrice: rec.retailPrice,
           mapPrice: rec.mapPrice,
@@ -234,6 +244,16 @@ async function syncSynnexCatalog(): Promise<SyncJobResult> {
   const feedType = "catalog";
 
   await getOrCreateSyncState(distributor, feedType);
+
+  // Check if remote file has changed before downloading
+  const remoteInfo = await getSynnexRemoteFileInfo("inv_report");
+  if (remoteInfo) {
+    const changed = await shouldSync(distributor, feedType, remoteInfo.size, remoteInfo.modified);
+    if (!changed) {
+      return { jobId: "", distributor, itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, itemsFailed: 0, durationMs: 0 };
+    }
+  }
+
   await markRunning(distributor, feedType);
 
   const job = await prisma.syncJob.create({
@@ -241,10 +261,11 @@ async function syncSynnexCatalog(): Promise<SyncJobResult> {
   });
 
   try {
-    const downloadResult = await downloadSynnexCatalog();
+    // Download from stock/inv_report.zip (daily-updated, replaces stale 698913.zip)
+    const downloadResult = await downloadSynnexInvReport();
 
     async function* adaptRecords(): AsyncGenerator<ParsedRecord> {
-      for await (const rec of parseSynnexCatalogFile(downloadResult.localPath)) {
+      for await (const rec of parseSynnexInvReport(downloadResult.localPath)) {
         yield {
           distributor: "synnex",
           distributorSku: rec.synnexSku,
@@ -253,8 +274,8 @@ async function syncSynnexCatalog(): Promise<SyncJobResult> {
           description: rec.description,
           category: rec.category,
           subCategory: null,
-          rawVendorName: rec.vendorName,
-          rawMfgCode: rec.mfgCode,
+          rawVendorName: rec.vendorName || null,
+          rawMfgCode: rec.mfgCode || null,
           costPrice: rec.costPrice,
           retailPrice: rec.retailPrice,
           totalQuantity: rec.totalQuantity,
@@ -279,7 +300,108 @@ async function syncSynnexCatalog(): Promise<SyncJobResult> {
       updated: result.itemsUpdated,
       failed: result.itemsFailed,
     }, {
-      name: "698913.ap",
+      name: "inv_report.app",
+      size: downloadResult.remoteSize,
+      modified: downloadResult.remoteModified,
+    });
+
+    await prisma.syncJob.update({
+      where: { id: job.id },
+      data: {
+        status: "completed",
+        itemsProcessed: result.itemsProcessed,
+        itemsCreated: result.itemsCreated,
+        itemsUpdated: result.itemsUpdated,
+        itemsFailed: result.itemsFailed,
+        completedAt: new Date(),
+      },
+    });
+
+    return {
+      jobId: job.id,
+      distributor,
+      itemsProcessed: result.itemsProcessed,
+      itemsCreated: result.itemsCreated,
+      itemsUpdated: result.itemsUpdated,
+      itemsFailed: result.itemsFailed,
+      durationMs: result.durationMs,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await markFailed(distributor, feedType, msg);
+    await prisma.syncJob.update({
+      where: { id: job.id },
+      data: { status: "failed", errorLog: [msg], completedAt: new Date() },
+    });
+    throw err;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SYNNEX Delta Sync (stock/inv_report_delta.app — incremental changes)
+// ---------------------------------------------------------------------------
+
+async function syncSynnexDelta(): Promise<SyncJobResult> {
+  const distributor = "synnex";
+  const feedType = "inv_delta";
+
+  await getOrCreateSyncState(distributor, feedType);
+
+  // Check if remote file has changed before downloading
+  const remoteInfo = await getSynnexRemoteFileInfo("inv_delta");
+  if (remoteInfo) {
+    const changed = await shouldSync(distributor, feedType, remoteInfo.size, remoteInfo.modified);
+    if (!changed) {
+      return { jobId: "", distributor, itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, itemsFailed: 0, durationMs: 0 };
+    }
+  }
+
+  await markRunning(distributor, feedType);
+
+  const job = await prisma.syncJob.create({
+    data: { jobType: "ftp_catalog", distributor, status: "running" },
+  });
+
+  try {
+    const downloadResult = await downloadSynnexInvDelta();
+
+    async function* adaptRecords(): AsyncGenerator<ParsedRecord> {
+      for await (const rec of parseSynnexInvDelta(downloadResult.localPath)) {
+        yield {
+          distributor: "synnex",
+          distributorSku: rec.synnexSku,
+          mpn: rec.mpn,
+          name: rec.description || rec.mpn,
+          description: rec.description,
+          category: rec.category,
+          subCategory: null,
+          rawVendorName: rec.vendorName || null,
+          rawMfgCode: rec.mfgCode || null,
+          costPrice: rec.costPrice,
+          retailPrice: rec.retailPrice,
+          totalQuantity: rec.totalQuantity,
+          upc: rec.upc,
+          weight: rec.weight,
+        };
+      }
+    }
+
+    const result = await bulkUpsertFromFtp("synnex", adaptRecords(), {
+      onProgress: (stats) => {
+        const rate = stats.elapsed > 0 ? Math.round((stats.processed / stats.elapsed) * 60_000) : 0;
+        console.log(`[ftp-catalog-sync] SYNNEX delta: ${stats.processed.toLocaleString()} processed, ${stats.created.toLocaleString()} created, ${stats.failed} failed (${rate}/min)`);
+      },
+    });
+
+    fs.unlinkSync(downloadResult.localPath);
+
+    await markCompleted(distributor, feedType, {
+      processed: result.itemsProcessed,
+      created: result.itemsCreated,
+      updated: result.itemsUpdated,
+      failed: result.itemsFailed,
+    }, {
+      name: "inv_report_delta.app",
       size: downloadResult.remoteSize,
       modified: downloadResult.remoteModified,
     });
@@ -325,6 +447,16 @@ async function syncDhCatalog(): Promise<SyncJobResult> {
   const feedType = "catalog";
 
   await getOrCreateSyncState(distributor, feedType);
+
+  // Check if remote file has changed before downloading
+  const remoteInfo = await getDhRemoteFileInfo();
+  if (remoteInfo) {
+    const changed = await shouldSync(distributor, feedType, remoteInfo.size, remoteInfo.modified);
+    if (!changed) {
+      return { jobId: "", distributor, itemsProcessed: 0, itemsCreated: 0, itemsUpdated: 0, itemsFailed: 0, durationMs: 0 };
+    }
+  }
+
   await markRunning(distributor, feedType);
 
   const job = await prisma.syncJob.create({
@@ -348,7 +480,7 @@ async function syncDhCatalog(): Promise<SyncJobResult> {
           description: rec.longDescription || rec.shortDescription,
           category: rec.categoryName,
           subCategory: rec.subcategoryName,
-          rawVendorName: rec.vendorName,
+          rawVendorName: rec.vendorName || null,
           rawMfgCode: null,
           costPrice: rec.unitCost,
           retailPrice: rec.msrp,
@@ -439,6 +571,9 @@ export async function runFtpCatalogSync(
           break;
         case "synnex":
           result = await syncSynnexCatalog();
+          break;
+        case "synnex-delta":
+          result = await syncSynnexDelta();
           break;
         case "dh":
           result = await syncDhCatalog();

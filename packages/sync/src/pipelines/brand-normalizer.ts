@@ -159,7 +159,7 @@ async function exactMatch(
 
   // Try alias exact match
   if (rawVendorName) {
-    const normalized = rawVendorName.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+    const normalized = rawVendorName.toLowerCase().replace(/[^a-z0-9]/g, "");
     const alias = await prisma.manufacturerAlias.findFirst({
       where: { aliasNormalized: normalized },
       include: { vendor: true },
@@ -185,7 +185,10 @@ async function exactMatch(
 async function normalizedMatch(
   rawVendorName: string,
 ): Promise<BrandResolution | null> {
-  const normalized = normalizeVendorName(rawVendorName);
+  // Step 2: Strip legal suffixes (Inc., LLC, Corp.) then normalize
+  // This catches "Cisco Systems, Inc." matching an alias for "Cisco Systems"
+  const stripped = normalizeVendorName(rawVendorName);
+  const normalized = stripped.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   const alias = await prisma.manufacturerAlias.findFirst({
     where: { aliasNormalized: normalized },
@@ -214,16 +217,25 @@ interface SimilarityResult {
   name: string;
 }
 
+let cachedVendorsWithAliases: Array<{ id: string; name: string; aliases: Array<{ alias: string }> }> | null = null;
+let vendorCacheLoadedAt = 0;
+const VENDOR_CACHE_TTL_MS = 5 * 60 * 1000;
+
 async function tokenSimilarityMatch(
   rawVendorName: string,
 ): Promise<SimilarityResult | null> {
   const inputTokens = tokenize(rawVendorName);
   if (inputTokens.size === 0) return null;
 
-  // Load all vendors with their aliases
-  const vendors = await prisma.vendor.findMany({
-    include: { aliases: { select: { alias: true } } },
-  });
+  // Load all vendors with their aliases (cached for 5 minutes)
+  const now = Date.now();
+  if (!cachedVendorsWithAliases || now - vendorCacheLoadedAt > VENDOR_CACHE_TTL_MS) {
+    cachedVendorsWithAliases = await prisma.vendor.findMany({
+      include: { aliases: { select: { alias: true } } },
+    });
+    vendorCacheLoadedAt = now;
+  }
+  const vendors = cachedVendorsWithAliases;
 
   let bestScore = 0;
   let bestMatch: SimilarityResult | null = null;
@@ -264,7 +276,7 @@ async function insertAutoAlias(
   vendorId: string,
   confidence: number,
 ): Promise<void> {
-  const normalized = normalizeVendorName(rawVendorName);
+  const normalized = rawVendorName.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   await prisma.manufacturerAlias.upsert({
     where: {
@@ -308,9 +320,7 @@ async function descriptionExtraction(
     // Try exact alias match on the candidate
     const candidateNormalized = candidate
       .toLowerCase()
-      .replace(/[^\w\s]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+      .replace(/[^a-z0-9]/g, "");
 
     const exactAlias = await prisma.manufacturerAlias.findFirst({
       where: { aliasNormalized: candidateNormalized },
@@ -318,13 +328,13 @@ async function descriptionExtraction(
     });
 
     if (exactAlias) {
-      // Also register the mfg code mapping if available
-      if (rawMfgCode) {
+      // Also register the mfg code mapping if available (skip sentinels like "0")
+      if (rawMfgCode && rawMfgCode.trim().length >= 2 && !/^\d{1,2}$/.test(rawMfgCode.trim())) {
         await prisma.distributorMfgCode.upsert({
           where: {
             distributor_code: {
               distributor,
-              code: rawMfgCode,
+              code: rawMfgCode.trim(),
             },
           },
           update: {
@@ -332,7 +342,7 @@ async function descriptionExtraction(
           },
           create: {
             distributor,
-            code: rawMfgCode,
+            code: rawMfgCode.trim(),
             vendorId: exactAlias.vendorId,
           },
         });
@@ -343,41 +353,6 @@ async function descriptionExtraction(
         confidence: 0.9,
         method: "description_extraction",
         matchedName: exactAlias.vendor.name,
-      };
-    }
-
-    // Try normalized match on the candidate
-    const normalizedCandidate = normalizeVendorName(candidate);
-    const normalizedAlias = await prisma.manufacturerAlias.findFirst({
-      where: { aliasNormalized: normalizedCandidate },
-      include: { vendor: true },
-    });
-
-    if (normalizedAlias) {
-      if (rawMfgCode) {
-        await prisma.distributorMfgCode.upsert({
-          where: {
-            distributor_code: {
-              distributor,
-              code: rawMfgCode,
-            },
-          },
-          update: {
-            vendorId: normalizedAlias.vendorId,
-          },
-          create: {
-            distributor,
-            code: rawMfgCode,
-            vendorId: normalizedAlias.vendorId,
-          },
-        });
-      }
-
-      return {
-        vendorId: normalizedAlias.vendorId,
-        confidence: 0.9,
-        method: "description_extraction",
-        matchedName: normalizedAlias.vendor.name,
       };
     }
   }

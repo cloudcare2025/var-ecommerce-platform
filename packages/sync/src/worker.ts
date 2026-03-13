@@ -3,9 +3,9 @@
  *
  * Main entry point for the sync-worker Railway service.
  * Registers cron jobs for:
- *   - Nightly FTP catalog sync (2am ET)
+ *   - Nightly FTP catalog sync (2am ET, SYNNEX uses stock/inv_report.zip)
  *   - Ingram stock sync (every 3 hours)
- *   - SYNNEX stock sync (hourly)
+ *   - SYNNEX delta sync (every 4 hours, stock/inv_report_delta.app)
  *   - API incremental P&A (hot: 5min, standard: 15min, cold: 30min)
  */
 
@@ -73,12 +73,12 @@ function registerCronJobs(): void {
     { timezone: tz },
   );
 
-  // SYNNEX stock sync — hourly
+  // SYNNEX delta sync — every 4 hours (replaces stale hourly 698913h.app stock sync)
   cron.schedule(
-    "0 * * * *",
+    "0 */4 * * *",
     () => {
-      guardedRun("ftp-stock-synnex", async () => {
-        await runFtpStockSync("synnex");
+      guardedRun("ftp-delta-synnex", async () => {
+        await runFtpCatalogSync("synnex-delta");
       });
     },
     { timezone: tz },
@@ -106,9 +106,9 @@ function registerCronJobs(): void {
   });
 
   console.log("[sync-worker] Cron jobs registered:");
-  console.log("  - 02:00 daily     → FTP catalog sync (all distributors)");
+  console.log("  - 02:00 daily     → FTP catalog sync (all distributors, SYNNEX uses stock/inv_report.zip)");
   console.log("  - */3h            → Ingram stock sync (TOTAL.TXT)");
-  console.log("  - */1h            → SYNNEX stock sync (698913h.app)");
+  console.log("  - */4h            → SYNNEX delta sync (stock/inv_report_delta.app)");
   console.log("  - */5m            → API incremental P&A (hot tier)");
   console.log("  - */15m           → API incremental P&A (standard tier)");
   console.log("  - */30m           → API incremental P&A (cold tier)");

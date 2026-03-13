@@ -63,7 +63,7 @@ function connectConfig(): Parameters<SftpClient["connect"]>[0] {
 }
 
 // ---------------------------------------------------------------------------
-// Catalog Feed (698913.zip → .ap file)
+// Catalog Feed ({accountNum}.zip → .ap file) [LEGACY — kept for backward compat]
 // ---------------------------------------------------------------------------
 
 export async function downloadCatalogFile(
@@ -81,18 +81,18 @@ export async function downloadCatalogFile(
 
       const listing = await sftp.list("/");
 
-      // Look for 698913.zip or similar catalog zip
+      // Find the account-specific .zip (e.g., 780980.zip or 698913.zip)
       const catalogZip = listing.find(
-        (f) => f.name.match(/^698913\.zip$/i) && f.type === "-",
+        (f) => f.name.match(/^\d+\.zip$/i) && f.type === "-",
       );
 
       if (!catalogZip) {
-        throw new Error("698913.zip not found on SYNNEX SFTP");
+        throw new Error("No catalog .zip found on SYNNEX SFTP root");
       }
 
       const remoteSize = catalogZip.size;
       const remoteModified = new Date(catalogZip.modifyTime);
-      const zipPath = path.join(dir, "698913.zip");
+      const zipPath = path.join(dir, catalogZip.name);
 
       console.log(`[synnex-ftp] Downloading ${catalogZip.name} (${(remoteSize / 1e6).toFixed(1)} MB)...`);
       await sftp.fastGet(`/${catalogZip.name}`, zipPath);
@@ -103,7 +103,7 @@ export async function downloadCatalogFile(
       const apEntry = entries.find((e) => e.entryName.match(/\.ap$/i));
 
       if (!apEntry) {
-        throw new Error("No .ap file found inside 698913.zip");
+        throw new Error(`No .ap file found inside ${catalogZip.name}`);
       }
 
       const apPath = path.join(dir, apEntry.entryName);
@@ -121,7 +121,104 @@ export async function downloadCatalogFile(
 }
 
 // ---------------------------------------------------------------------------
-// Stock Feed (698913h.app — hourly)
+// Inv Report Feed (stock/inv_report.zip — daily, fresh pricing + stock)
+// ---------------------------------------------------------------------------
+
+export async function downloadInvReport(
+  destDir?: string,
+): Promise<FtpDownloadResult> {
+  const dir = destDir ?? path.join(worker.tmpDir, "synnex");
+  ensureDir(dir);
+
+  return withRetry("downloadInvReport", async () => {
+    const sftp = new SftpClient();
+
+    try {
+      await sftp.connect(connectConfig());
+      console.log("[synnex-ftp] Connected for inv_report download");
+
+      const listing = await sftp.list("/stock");
+
+      const invZip = listing.find(
+        (f) => f.name.match(/^inv_report\.zip$/i) && f.type === "-",
+      );
+
+      if (!invZip) {
+        throw new Error("inv_report.zip not found in stock/ on SYNNEX SFTP");
+      }
+
+      const remoteSize = invZip.size;
+      const remoteModified = new Date(invZip.modifyTime);
+      const zipPath = path.join(dir, "inv_report.zip");
+
+      console.log(`[synnex-ftp] Downloading stock/${invZip.name} (${(remoteSize / 1e6).toFixed(1)} MB)...`);
+      await sftp.fastGet(`/stock/${invZip.name}`, zipPath);
+
+      // Extract the .app file
+      const zip = new AdmZip(zipPath);
+      const entries = zip.getEntries();
+      const appEntry = entries.find((e) => e.entryName.match(/inv_report\.app$/i));
+
+      if (!appEntry) {
+        throw new Error("No inv_report.app file found inside inv_report.zip");
+      }
+
+      const appPath = path.join(dir, appEntry.entryName);
+      zip.extractEntryTo(appEntry, dir, false, true);
+      console.log(`[synnex-ftp] Extracted ${appEntry.entryName}`);
+
+      // Clean up ZIP
+      fs.unlinkSync(zipPath);
+
+      return { localPath: appPath, remoteSize, remoteModified };
+    } finally {
+      await sftp.end().catch(() => {});
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Inv Report Delta (stock/inv_report_delta.app — daily changes)
+// ---------------------------------------------------------------------------
+
+export async function downloadInvDelta(
+  destDir?: string,
+): Promise<FtpDownloadResult> {
+  const dir = destDir ?? path.join(worker.tmpDir, "synnex");
+  ensureDir(dir);
+
+  return withRetry("downloadInvDelta", async () => {
+    const sftp = new SftpClient();
+
+    try {
+      await sftp.connect(connectConfig());
+      console.log("[synnex-ftp] Connected for inv_report_delta download");
+
+      const listing = await sftp.list("/stock");
+      const deltaFile = listing.find(
+        (f) => f.name.match(/^inv_report_delta\.app$/i) && f.type === "-",
+      );
+
+      if (!deltaFile) {
+        throw new Error("inv_report_delta.app not found in stock/ on SYNNEX SFTP");
+      }
+
+      const remoteSize = deltaFile.size;
+      const remoteModified = new Date(deltaFile.modifyTime);
+      const localPath = path.join(dir, "inv_report_delta.app");
+
+      console.log(`[synnex-ftp] Downloading stock/${deltaFile.name} (${(remoteSize / 1e6).toFixed(1)} MB)...`);
+      await sftp.fastGet(`/stock/${deltaFile.name}`, localPath);
+
+      return { localPath, remoteSize, remoteModified };
+    } finally {
+      await sftp.end().catch(() => {});
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Stock Feed ({accountNum}h.app — hourly) [LEGACY — kept for backward compat]
 // ---------------------------------------------------------------------------
 
 export async function downloadStockFile(
@@ -138,17 +235,18 @@ export async function downloadStockFile(
       console.log("[synnex-ftp] Connected for stock feed download");
 
       const listing = await sftp.list("/");
+      // Find the account-specific hourly stock file (e.g., 780980h.app)
       const stockFile = listing.find(
-        (f) => f.name.match(/^698913h\.app$/i) && f.type === "-",
+        (f) => f.name.match(/^\d+h\.app$/i) && f.type === "-",
       );
 
       if (!stockFile) {
-        throw new Error("698913h.app not found on SYNNEX SFTP");
+        throw new Error("No hourly stock .app file found on SYNNEX SFTP root");
       }
 
       const remoteSize = stockFile.size;
       const remoteModified = new Date(stockFile.modifyTime);
-      const localPath = path.join(dir, "698913h.app");
+      const localPath = path.join(dir, stockFile.name);
 
       console.log(`[synnex-ftp] Downloading ${stockFile.name} (${(remoteSize / 1e6).toFixed(1)} MB)...`);
       await sftp.fastGet(`/${stockFile.name}`, localPath);
@@ -165,17 +263,26 @@ export async function downloadStockFile(
 // ---------------------------------------------------------------------------
 
 export async function getRemoteFileInfo(
-  feed: "catalog" | "stock",
+  feed: "catalog" | "stock" | "inv_report" | "inv_delta",
 ): Promise<{ size: number; modified: Date } | null> {
   const sftp = new SftpClient();
-  const fileName = feed === "catalog" ? "698913.zip" : "698913h.app";
+
+  // Pattern-based matching for account-specific files, exact match for stock/ files
+  const feedConfig: Record<typeof feed, { dir: string; pattern: RegExp }> = {
+    catalog: { dir: "/", pattern: /^\d+\.zip$/i },
+    stock: { dir: "/", pattern: /^\d+h\.app$/i },
+    inv_report: { dir: "/stock", pattern: /^inv_report\.zip$/i },
+    inv_delta: { dir: "/stock", pattern: /^inv_report_delta\.app$/i },
+  };
+
+  const { dir, pattern } = feedConfig[feed];
 
   try {
     await sftp.connect(connectConfig());
 
-    const listing = await sftp.list("/");
+    const listing = await sftp.list(dir);
     const file = listing.find(
-      (f) => f.name.toLowerCase() === fileName.toLowerCase() && f.type === "-",
+      (f) => pattern.test(f.name) && f.type === "-",
     );
 
     if (!file) return null;

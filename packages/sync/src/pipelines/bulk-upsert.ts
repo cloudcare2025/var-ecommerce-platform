@@ -62,6 +62,8 @@ export interface BulkUpsertResult {
 interface BrandMaps {
   aliasMap: Map<string, string>;
   mfgCodeMap: Map<string, string>;
+  /** Prefix map for truncated vendor names (SYNNEX truncates at 25 chars) */
+  prefixMap: Map<string, string>;
   fallbackVendorId: string | null;
 }
 
@@ -78,13 +80,36 @@ async function loadBrandMaps(): Promise<BrandMaps> {
   const aliasMap = new Map<string, string>();
   const mfgCodeMap = new Map<string, string>();
 
-  // Load aliases
+  // Load aliases — re-normalize keys to match fast-path format
+  // (fast-path strips ALL non-alphanumeric: /[^a-z0-9]/g)
+  // DB may store with spaces ("hewlett packard") but lookup uses "hewlettpackard"
   const aliases = await prisma.manufacturerAlias.findMany({
     select: { aliasNormalized: true, vendorId: true },
   });
   for (const a of aliases) {
-    aliasMap.set(a.aliasNormalized, a.vendorId);
+    const fastKey = a.aliasNormalized.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (fastKey) aliasMap.set(fastKey, a.vendorId);
   }
+
+  // Build prefix map for truncated vendor names (SYNNEX truncates at 25 chars)
+  // For aliases longer than 20 chars (normalized), store 20-char prefix → vendorId.
+  // Skip collisions (different vendors sharing same prefix) to avoid wrong matches.
+  const prefixMap = new Map<string, string>();
+  const TRUNCATION_PREFIX_LEN = 20;
+  const collisions = new Set<string>();
+  for (const [fastKey, vendorId] of aliasMap) {
+    if (fastKey.length > TRUNCATION_PREFIX_LEN) {
+      const prefix = fastKey.slice(0, TRUNCATION_PREFIX_LEN);
+      const existing = prefixMap.get(prefix);
+      if (existing && existing !== vendorId) {
+        // Different vendors share this prefix — mark as collision
+        collisions.add(prefix);
+      } else {
+        prefixMap.set(prefix, vendorId);
+      }
+    }
+  }
+  for (const c of collisions) prefixMap.delete(c);
 
   // Load mfg codes
   const codes = await prisma.distributorMfgCode.findMany({
@@ -103,12 +128,27 @@ async function loadBrandMaps(): Promise<BrandMaps> {
   cachedBrandMaps = {
     aliasMap,
     mfgCodeMap,
+    prefixMap,
     fallbackVendorId: unknown?.id ?? null,
   };
   brandMapsLoadedAt = now;
 
-  console.log(`[bulk-upsert] Loaded ${aliasMap.size} aliases, ${mfgCodeMap.size} mfg codes`);
+  console.log(`[bulk-upsert] Loaded ${aliasMap.size} aliases, ${mfgCodeMap.size} mfg codes, ${prefixMap.size} prefix entries`);
   return cachedBrandMaps;
+}
+
+/**
+ * Returns true if a mfgCode is valid for lookup/caching.
+ * Filters out sentinel values like "0", single digits, and empty strings
+ * that would cause cache poisoning (one vendor cached under "0" poisons
+ * ALL subsequent lookups for records with mfgCode "0").
+ */
+function isValidMfgCode(code: string | null): code is string {
+  if (!code) return false;
+  const trimmed = code.trim();
+  if (trimmed.length < 2) return false; // "0", "1", etc.
+  if (/^\d{1,2}$/.test(trimmed)) return false; // "00", "01", etc.
+  return true;
 }
 
 /**
@@ -121,9 +161,9 @@ function resolveVendorIdFast(
   vendorName: string | null,
   vendorCode: string | null,
 ): string | null {
-  // Try distributor mfg code first
-  if (vendorCode) {
-    const key = `${distributor}:${vendorCode}`;
+  // Try distributor mfg code first (only if code is meaningful)
+  if (isValidMfgCode(vendorCode)) {
+    const key = `${distributor}:${vendorCode.trim()}`;
     const id = maps.mfgCodeMap.get(key);
     if (id) return id;
   }
@@ -139,9 +179,16 @@ function resolveVendorIdFast(
       .split(/[\s\-–—]/)[0]
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
-    if (firstWord) {
+    if (firstWord && firstWord !== normalized) {
       const firstId = maps.aliasMap.get(firstWord);
       if (firstId) return firstId;
+    }
+
+    // Prefix match for truncated names (SYNNEX truncates at 25 chars)
+    if (vendorName.length >= 24 && normalized.length >= 20) {
+      const prefix = normalized.slice(0, 20);
+      const prefixId = maps.prefixMap.get(prefix);
+      if (prefixId) return prefixId;
     }
   }
 
@@ -276,6 +323,7 @@ const SYNC_PRODUCT_UPSERT = `
     description = COALESCE(NULLIF(EXCLUDED.description, ''), sync_products.description),
     category = COALESCE(NULLIF(EXCLUDED.category, ''), sync_products.category),
     sub_category = COALESCE(NULLIF(EXCLUDED.sub_category, ''), sync_products.sub_category),
+    slug = EXCLUDED.slug,
     updated_at = NOW()
   RETURNING id, vendor_id, mpn
 `;
@@ -359,10 +407,6 @@ async function flushBatch(
 
   try {
     // Phase 1: Resolve vendors
-    interface ResolvedItem extends ParsedRecord {
-      vendorId: string;
-    }
-
     const resolved: ResolvedItem[] = [];
 
     for (const item of items) {
@@ -385,13 +429,17 @@ async function flushBatch(
           });
           vendorId = resolution.vendorId;
 
-          // Cache the result in our maps
-          if (vendorId && item.rawMfgCode) {
-            maps.mfgCodeMap.set(`${distributor}:${item.rawMfgCode}`, vendorId);
+          // Cache the result in our maps (guard against sentinel codes like "0")
+          if (vendorId && isValidMfgCode(item.rawMfgCode)) {
+            maps.mfgCodeMap.set(`${distributor}:${item.rawMfgCode.trim()}`, vendorId);
           }
-          if (vendorId && item.rawVendorName) {
+          // Only cache vendor name alias when the name actually matched the vendor
+          // (description_extraction resolves from description text, not vendorName)
+          if (vendorId && item.rawVendorName && resolution.method !== "description_extraction" && resolution.method !== "unresolved") {
             const normalized = item.rawVendorName.toLowerCase().replace(/[^a-z0-9]/g, "");
-            maps.aliasMap.set(normalized, vendorId);
+            if (normalized.length > 0) {
+              maps.aliasMap.set(normalized, vendorId);
+            }
           }
         } catch {
           // If resolution fails entirely, use fallback
@@ -418,7 +466,7 @@ async function flushBatch(
     const deduped: ResolvedItem[] = [];
 
     for (const item of resolved) {
-      const mpnKey = `${item.vendorId}:${item.mpn}`;
+      const mpnKey = `${item.vendorId}:${item.mpn.toUpperCase()}`;
       if (seenMpn.has(mpnKey) || seenSku.has(item.distributorSku)) continue;
       seenMpn.add(mpnKey);
       seenSku.add(item.distributorSku);
@@ -440,7 +488,7 @@ async function flushBatch(
     for (const item of deduped) {
       spIds.push(cuid());
       spVids.push(item.vendorId);
-      spMpns.push(item.mpn);
+      spMpns.push(item.mpn.toUpperCase());
       spNames.push(item.name || item.mpn);
       spSlugs.push(slugify(`${item.mpn}-${(item.name || "").slice(0, 60)}`));
       spDescs.push(item.description);
@@ -460,7 +508,7 @@ async function flushBatch(
 
     const spMap = new Map<string, string>();
     for (const r of spRes) {
-      spMap.set(`${r.vendor_id}:${r.mpn}`, r.id);
+      spMap.set(`${r.vendor_id}:${r.mpn.toUpperCase()}`, r.id);
     }
 
     // Phase 4: Per-distributor listing UNNEST upsert
@@ -513,7 +561,7 @@ async function upsertIngramListings(
   const vnums: (string | null)[] = [];
 
   for (const item of items) {
-    const syncProductId = spMap.get(`${item.vendorId}:${item.mpn}`);
+    const syncProductId = spMap.get(`${item.vendorId}:${item.mpn.toUpperCase()}`);
     if (!syncProductId) continue;
 
     const sellPrice = item.costPrice != null
@@ -523,7 +571,7 @@ async function upsertIngramListings(
     ids.push(cuid());
     spIds.push(syncProductId);
     skus.push(item.distributorSku);
-    vpns.push(item.mpn);
+    vpns.push(item.mpn.toUpperCase());
     costs.push(item.costPrice);
     retails.push(item.retailPrice ?? null);
     sells.push(sellPrice);
@@ -565,7 +613,7 @@ async function upsertSynnexListings(
   const upcs: (string | null)[] = [];
 
   for (const item of items) {
-    const syncProductId = spMap.get(`${item.vendorId}:${item.mpn}`);
+    const syncProductId = spMap.get(`${item.vendorId}:${item.mpn.toUpperCase()}`);
     if (!syncProductId) continue;
 
     const sellPrice = item.costPrice != null
@@ -575,7 +623,7 @@ async function upsertSynnexListings(
     ids.push(cuid());
     spIds.push(syncProductId);
     skus.push(item.distributorSku);
-    vpns.push(item.mpn);
+    vpns.push(item.mpn.toUpperCase());
     costs.push(item.costPrice);
     retails.push(item.retailPrice ?? null);
     sells.push(sellPrice);
@@ -619,7 +667,7 @@ async function upsertDhListings(
   const sss: (string | null)[] = [];
 
   for (const item of items) {
-    const syncProductId = spMap.get(`${item.vendorId}:${item.mpn}`);
+    const syncProductId = spMap.get(`${item.vendorId}:${item.mpn.toUpperCase()}`);
     if (!syncProductId) continue;
 
     const sellPrice = item.costPrice != null
@@ -629,7 +677,7 @@ async function upsertDhListings(
     ids.push(cuid());
     spIds.push(syncProductId);
     skus.push(item.distributorSku);
-    vpns.push(item.mpn);
+    vpns.push(item.mpn.toUpperCase());
     costs.push(item.costPrice);
     retails.push(item.retailPrice ?? null);
     sells.push(sellPrice);
