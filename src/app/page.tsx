@@ -7,13 +7,10 @@ import { CategoryShowcase } from "@/components/home/CategoryShowcase";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { PartnersSection } from "@/components/home/PartnersSection";
 import { NewsSection } from "@/components/home/NewsSection";
-import { getPageContent } from "@/lib/db/products";
+
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  // Fetch DB-driven page content for the homepage.
-  // Components can be incrementally updated to consume these sections.
-  // For now, data is fetched but existing rendering is preserved.
-  const _homepageContent = await getPageContent("home");
 
   return (
     <>

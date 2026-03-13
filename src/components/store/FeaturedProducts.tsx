@@ -2,7 +2,12 @@ import { getFeaturedProducts } from "@/lib/db/products";
 import { FeaturedProductsGrid } from "./FeaturedProductsGrid";
 
 export async function FeaturedProducts() {
-  const featured = await getFeaturedProducts(8);
+  let featured: Awaited<ReturnType<typeof getFeaturedProducts>> = [];
+  try {
+    featured = await getFeaturedProducts(8);
+  } catch {
+    // DB unavailable during build — graceful fallback
+  }
 
   return (
     <section className="py-20 bg-white">
