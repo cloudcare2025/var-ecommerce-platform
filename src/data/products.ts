@@ -5,18 +5,18 @@ import type { Product } from "@/types";
 // =============================================================================
 
 export const categories = [
-  { id: "firewalls" as const, name: "Firewalls", description: "Next-Generation Network Security" },
-  { id: "switches" as const, name: "Switches", description: "Enterprise Network Switching" },
-  { id: "access-points" as const, name: "Access Points", description: "Secure Wireless Access" },
-  { id: "security-subscriptions" as const, name: "Security Subscriptions", description: "Threat Protection Services" },
-  { id: "support-contracts" as const, name: "Support & Warranty", description: "Extended Coverage & Services" },
-  { id: "licenses" as const, name: "Software Licenses", description: "Platform & Feature Licensing" },
-  { id: "cloud-security" as const, name: "Cloud Security", description: "SASE & Zero Trust Access" },
-  { id: "endpoint" as const, name: "Endpoint & MDR", description: "Detection & Response" },
-  { id: "management" as const, name: "Management", description: "Unified Security Management" },
-  { id: "accessories" as const, name: "Accessories", description: "Racks, Cables & Add-Ons" },
-  { id: "power-supplies" as const, name: "Power & Redundancy", description: "Power Supplies & UPS" },
-  { id: "email-security" as const, name: "Email Security", description: "Email Protection & Filtering" },
+  { id: "firewalls" as const, name: "Next-Gen Firewalls", description: "Enterprise-grade firewall appliances" },
+  { id: "switches" as const, name: "Network Switches", description: "Enterprise managed PoE+ switching" },
+  { id: "access-points" as const, name: "Wireless Access Points", description: "Wi-Fi 6 with integrated security" },
+  { id: "security-services" as const, name: "Security Services", description: "Subscription threat protection" },
+  { id: "support" as const, name: "Support & Warranty", description: "24x7 support & firmware updates" },
+  { id: "management" as const, name: "Management & Analytics", description: "NSM & centralized control" },
+  { id: "secure-access" as const, name: "Secure Access", description: "SMA, SASE & zero-trust VPN" },
+  { id: "endpoint" as const, name: "Endpoint Security", description: "Capture Client EDR/MDR" },
+  { id: "email-security" as const, name: "Email Security", description: "Anti-phishing & email protection" },
+  { id: "accessories" as const, name: "Accessories & Modules", description: "SFP, racks, cables & expansion" },
+  { id: "power-supplies" as const, name: "Power Supplies", description: "Replacement & redundant PSUs" },
+  { id: "promotions" as const, name: "Trade-Up & Promotions", description: "Upgrade programs & MSSP tiers" },
 ] as const;
 
 // =============================================================================

@@ -74,12 +74,27 @@ export function generateMetaKeywords(
       "802.11ax",
       "mesh networking",
     ],
-    "cloud-security": [
+    "security-services": [
+      "security subscription",
+      "threat protection",
+      "security license",
+      "firewall subscription",
+      "security services",
+    ],
+    support: [
+      "support contract",
+      "warranty",
+      "technical support",
+      "firmware updates",
+      "maintenance",
+    ],
+    "secure-access": [
       "SASE",
       "Zero Trust",
-      "cloud security",
       "ZTNA",
-      "secure web gateway",
+      "secure remote access",
+      "SMA",
+      "VPN",
     ],
     endpoint: [
       "endpoint protection",
@@ -99,11 +114,11 @@ export function generateMetaKeywords(
       "NSM",
       "centralized management",
     ],
-    services: [
-      "security services",
-      "support",
-      "license",
-      "subscription",
+    promotions: [
+      "trade-up",
+      "upgrade program",
+      "promotional bundle",
+      "MSSP",
     ],
   };
 

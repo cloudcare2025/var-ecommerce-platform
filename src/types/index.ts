@@ -2,15 +2,15 @@ export type ProductCategory =
   | "firewalls"
   | "switches"
   | "access-points"
-  | "security-subscriptions"
-  | "support-contracts"
-  | "licenses"
-  | "cloud-security"
-  | "endpoint"
+  | "security-services"
+  | "support"
   | "management"
+  | "secure-access"
+  | "endpoint"
+  | "email-security"
   | "accessories"
   | "power-supplies"
-  | "email-security";
+  | "promotions";
 
 export interface Product {
   id: string;

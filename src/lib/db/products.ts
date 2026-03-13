@@ -16,15 +16,15 @@ export const VALID_CATEGORIES: ProductCategory[] = [
   "firewalls",
   "switches",
   "access-points",
-  "security-subscriptions",
-  "support-contracts",
-  "licenses",
-  "cloud-security",
-  "endpoint",
+  "security-services",
+  "support",
   "management",
+  "secure-access",
+  "endpoint",
+  "email-security",
   "accessories",
   "power-supplies",
-  "email-security",
+  "promotions",
 ];
 
 // ─── TYPE GUARDS ──────────────────────────────────────────────────────────────

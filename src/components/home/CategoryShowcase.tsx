@@ -23,13 +23,13 @@ const showcaseItems = [
     light: true,
   },
   {
-    category: "cloud-security",
+    category: "secure-access",
     label: "Secure Access",
     title: "Cloud Secure Edge",
     description:
       "Zero Trust network access without VPN complexity. Secure cloud, SaaS, and hybrid work.",
     image: "/images/products/video-poster-cse.jpg",
-    href: "/products/category/cloud-security",
+    href: "/products/category/secure-access",
   },
   {
     category: "endpoint",
