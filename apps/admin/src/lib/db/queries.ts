@@ -1135,6 +1135,170 @@ export async function getDiscoveredProducts(params: {
   return { products, total };
 }
 
+export async function getCatalogProducts(params: {
+  search?: string;
+  vendor?: string;
+  distributor?: string;
+  inStock?: boolean;
+  page?: number;
+  pageSize?: number;
+}) {
+  const { search, vendor, distributor, inStock, page = 1, pageSize = 50 } = params;
+
+  const where: Record<string, unknown> = {};
+
+  if (search) {
+    where.OR = [
+      { mpn: { contains: search, mode: "insensitive" } },
+      { name: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  if (vendor) {
+    where.vendor = { slug: vendor };
+  }
+
+  // Filter by specific distributor
+  if (distributor === "ingram") {
+    where.ingramListings = { some: {} };
+  } else if (distributor === "synnex") {
+    where.synnexListings = { some: {} };
+  } else if (distributor === "dh") {
+    where.dhListings = { some: {} };
+  }
+
+  // Filter for in-stock only
+  if (inStock) {
+    where.OR = where.OR ?? undefined;
+    const stockFilter = {
+      OR: [
+        { ingramListings: { some: { totalQuantity: { gt: 0 } } } },
+        { synnexListings: { some: { totalQuantity: { gt: 0 } } } },
+        { dhListings: { some: { totalQuantity: { gt: 0 } } } },
+      ],
+    };
+    if (where.OR) {
+      // Combine search OR with stock filter using AND
+      where.AND = [{ OR: where.OR }, stockFilter];
+      delete where.OR;
+    } else {
+      Object.assign(where, stockFilter);
+    }
+  }
+
+  const listingSelect = {
+    select: {
+      id: true,
+      distributorSku: true,
+      vendorPartNumber: true,
+      costPrice: true,
+      retailPrice: true,
+      sellPrice: true,
+      totalQuantity: true,
+      lastSyncedAt: true,
+    },
+  } as const;
+
+  const [items, total] = await Promise.all([
+    prisma.syncProduct.findMany({
+      where,
+      include: {
+        vendor: { select: { name: true, slug: true } },
+        ingramListings: listingSelect,
+        synnexListings: listingSelect,
+        dhListings: {
+          select: {
+            ...listingSelect.select,
+            mapPrice: true,
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.syncProduct.count({ where }),
+  ]);
+
+  const products = items.map((item) => {
+    const distributors: Array<{
+      name: string;
+      sku: string;
+      vpn: string | null;
+      costCents: number | null;
+      retailCents: number | null;
+      sellCents: number | null;
+      mapCents: number | null;
+      stock: number;
+      lastSynced: string | null;
+    }> = [];
+
+    for (const l of item.ingramListings) {
+      distributors.push({
+        name: "Ingram Micro",
+        sku: l.distributorSku,
+        vpn: l.vendorPartNumber,
+        costCents: l.costPrice !== null ? Number(l.costPrice) : null,
+        retailCents: l.retailPrice !== null ? Number(l.retailPrice) : null,
+        sellCents: l.sellPrice !== null ? Number(l.sellPrice) : null,
+        mapCents: null,
+        stock: Number(l.totalQuantity),
+        lastSynced: l.lastSyncedAt?.toISOString() ?? null,
+      });
+    }
+
+    for (const l of item.synnexListings) {
+      distributors.push({
+        name: "TD SYNNEX",
+        sku: l.distributorSku,
+        vpn: l.vendorPartNumber,
+        costCents: l.costPrice !== null ? Number(l.costPrice) : null,
+        retailCents: l.retailPrice !== null ? Number(l.retailPrice) : null,
+        sellCents: l.sellPrice !== null ? Number(l.sellPrice) : null,
+        mapCents: null,
+        stock: Number(l.totalQuantity),
+        lastSynced: l.lastSyncedAt?.toISOString() ?? null,
+      });
+    }
+
+    for (const l of item.dhListings) {
+      distributors.push({
+        name: "D&H",
+        sku: l.distributorSku,
+        vpn: l.vendorPartNumber,
+        costCents: l.costPrice !== null ? Number(l.costPrice) : null,
+        retailCents: l.retailPrice !== null ? Number(l.retailPrice) : null,
+        sellCents: l.sellPrice !== null ? Number(l.sellPrice) : null,
+        mapCents: l.mapPrice !== null ? Number(l.mapPrice) : null,
+        stock: Number(l.totalQuantity),
+        lastSynced: l.lastSyncedAt?.toISOString() ?? null,
+      });
+    }
+
+    const bestCost = distributors.reduce((min, d) => {
+      if (d.costCents === null) return min;
+      return min === null ? d.costCents : Math.min(min, d.costCents);
+    }, null as number | null);
+
+    const totalStock = distributors.reduce((sum, d) => sum + d.stock, 0);
+
+    return {
+      id: item.id,
+      mpn: item.mpn,
+      name: item.name,
+      vendor: item.vendor.name,
+      vendorSlug: item.vendor.slug,
+      category: item.category,
+      distributorCount: distributors.length,
+      bestCostCents: bestCost,
+      totalStock,
+      distributors,
+    };
+  });
+
+  return { products, total };
+}
+
 export async function getUnresolvedBrands(params: {
   search?: string;
   page?: number;
