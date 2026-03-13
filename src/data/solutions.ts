@@ -165,132 +165,132 @@ export const industries: IndustrySolution[] = [
   {
     slug: "healthcare",
     name: "Healthcare",
-    headline: "Connected care, powered by Samsung",
+    headline: "Efficiency from admission to discharge",
     description:
-      "Samsung healthcare solutions improve patient outcomes and clinical workflows with antimicrobial tablets, telehealth tools, digital whiteboard displays, and HIPAA-ready device management across hospitals, clinics, and care facilities.",
+      "Advanced healthcare solutions delivering personalized patient care that is seamless, respectful, and responsive. From patient room infotainment to wayfinding kiosks, remote monitoring, and defense-grade Knox security across your clinical device fleet.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/healthcare/04082025/B2B_Healthcare_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
-        title: "Telehealth & Virtual Care",
+        title: "Personalized Patient Care",
         description:
-          "Galaxy tablets and smartphones enable secure telehealth consultations with HD video, HIPAA-compliant apps, and Samsung Knox containerization.",
+          "HCU7030 Healthcare TVs for patient rooms with infotainment, video conferencing, and digital patient signage. LYNK REACH manages content across senior living facilities.",
       },
       {
-        title: "Clinical Workflow Tablets",
+        title: "Digitally Connected Care",
         description:
-          "Galaxy Tab with antimicrobial cases streamline electronic health records, medication administration, and bedside patient engagement.",
+          "Galaxy Tab Active5 Pro and XCover7 Pro enable enhanced collaboration at bedside. Galaxy Watch8 supports remote patient monitoring and staff health tracking.",
       },
       {
-        title: "Patient Room Displays",
+        title: "Wayfinding & Facility Displays",
         description:
-          "Samsung commercial displays and interactive whiteboards provide patient education, digital door signs, and wayfinding throughout facilities.",
+          "Interactive kiosks, direct-view LED video walls, and The Wall MicroLED transform lobbies, waiting areas, and food service with dynamic content.",
       },
       {
-        title: "HIPAA-Ready Management",
+        title: "Defense-Grade Security",
         description:
-          "Knox Suite provides HIPAA-compliant device management with remote configuration, data encryption, and policy enforcement across your clinical device fleet.",
+          "Samsung Knox and Knox Data Eraser protect patient data across your entire device fleet with remote management, encryption, and compliance enforcement.",
       },
     ],
     products: [
-      "Galaxy Tab",
-      "Galaxy S Series",
-      "Smart Signage",
-      "Knox Suite",
-      "Business Monitors",
+      "HCU7030 Healthcare TV",
+      "Galaxy Tab Active5 Pro",
+      "Galaxy Watch8",
+      "Windows Kiosk KM-Series",
+      "The Wall MicroLED",
     ],
     stats: [
-      { value: "HIPAA", label: "Compliant solutions" },
-      { value: "2,000+", label: "Healthcare facilities" },
-      { value: "1M+", label: "Clinical devices managed" },
+      { value: "3yr", label: "Device warranty" },
+      { value: "Knox", label: "Defense-grade security" },
+      { value: "LYNK", label: "REACH content management" },
     ],
     cta: "Explore Healthcare Solutions",
   },
   {
     slug: "hospitality",
     name: "Hospitality",
-    headline: "Elevate every guest experience",
+    headline: "The complete guest journey",
     description:
-      "Samsung hospitality solutions transform hotels, resorts, and restaurants with Hospitality TVs, digital menu boards, interactive lobby displays, and guest-facing technology that drives satisfaction and revenue.",
+      "Transform properties with high-impact signage from outdoors through accommodation. Leverage loyalty and app data for personalized guest experiences, simplify navigation with interactive wayfinding, and deliver in-room entertainment via commercial-grade hospitality TVs.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/hospitality/04082025/B2B_Hospitality_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
         title: "In-Room Entertainment",
         description:
-          "Samsung Hospitality TVs with LYNK REACH provide customized guest interfaces, streaming apps, and property branding on every screen.",
+          "HU8000F, HU7010F, and HU6000F Series commercial hospitality TVs with LYNK Cloud for in-room updates, health/safety messaging, and streaming apps.",
       },
       {
-        title: "Digital Menu Boards",
+        title: "Lobby & Casino Experiences",
         description:
-          "Smart Signage displays with MagicINFO CMS enable dynamic menu boards that update pricing, promotions, and availability in real-time.",
+          "The Wall MicroLED for luxury lobbies, indoor/outdoor LED signage, and interactive kiosks (KM Series) for wayfinding and self-service check-in.",
       },
       {
-        title: "Lobby & Conference Displays",
+        title: "Cloud Content Management",
         description:
-          "Interactive kiosks and video walls create stunning lobby experiences with self-check-in, wayfinding, and event information.",
+          "Samsung VXT CMS for cloud-native digital signage management across properties. Remote management eliminates on-site service calls.",
       },
       {
-        title: "Outdoor Signage",
+        title: "Property-Wide Branding",
         description:
-          "High-brightness outdoor displays and LED signage attract guests with vivid content visible in direct sunlight.",
+          "Outdoor LED signage for property branding and entrances, casino floor displays for promotions, and sportsbook environments with real-time event-tied updates.",
       },
     ],
     products: [
-      "Hospitality TV",
-      "Smart Signage",
-      "LED Signage",
-      "MagicINFO",
-      "Interactive Display",
+      "HU8000F Hospitality TV",
+      "HU7010F Hospitality TV",
+      "The Wall MicroLED",
+      "LYNK Cloud",
+      "Samsung VXT CMS",
     ],
     stats: [
-      { value: "70K+", label: "Hotels worldwide" },
       { value: "#1", label: "Hospitality TV brand" },
-      { value: "10yr", label: "Display panel warranty" },
+      { value: "3", label: "Commercial TV series" },
+      { value: "VXT", label: "Cloud signage platform" },
     ],
     cta: "Explore Hospitality Solutions",
   },
   {
     slug: "manufacturing",
     name: "Manufacturing",
-    headline: "Smart factories start with Samsung",
+    headline: "Enabling smart factory technology",
     description:
-      "Samsung manufacturing solutions connect shop floors with rugged tablets, IoT-ready displays, and Knox device management to improve operational efficiency, worker safety, and real-time production visibility.",
+      "Reduce downtime with real-time visibility, streamline operations by eliminating paper-based systems, and equip your workforce with ruggedized Samsung devices. IoT integration for predictive maintenance and quality control with defense-grade Knox security.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/manufacturing/04082025/B2B_Manufacturing_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
         title: "Rugged Shop Floor Devices",
         description:
-          "Galaxy Tab Active and XCover devices withstand drops, dust, extreme temperatures, and glove-touch operation for manufacturing environments.",
+          "Galaxy XCover7 Pro and Tab Active5 Pro for assembly floors, equipment inspection, and barcode scanning with SCANDIT integration.",
       },
       {
-        title: "Production Dashboards",
+        title: "Paper-Free Workflows",
         description:
-          "Large-format displays and video walls provide real-time production metrics, KPIs, and shift information visible across the factory floor.",
+          "Eliminate paper-based systems with connected technology. IBM Maximo asset management on Galaxy tablets for maintenance and inspection teams.",
       },
       {
-        title: "Connected Worker Solutions",
+        title: "Remote Expert Support",
         description:
-          "Galaxy smartphones and wearables keep frontline workers connected with push-to-talk, safety alerts, and digital work instructions.",
+          "Librestream Onsight enables remote expert guidance for field service technicians. Samsung DeX transforms mobile devices into desktop workstations.",
       },
       {
-        title: "Fleet Management at Scale",
+        title: "IoT & Predictive Maintenance",
         description:
-          "Knox Suite manages thousands of devices across multiple facilities with OTA updates, kiosk mode, and automated compliance policies.",
+          "Harman IoT partnership enables predictive maintenance, quality control on production lines, and system-wide real-time visibility across facilities.",
       },
     ],
     products: [
-      "Galaxy Tab Active",
-      "Galaxy XCover",
-      "Smart Signage",
+      "Galaxy XCover7 Pro",
+      "Galaxy Tab Active5 Pro",
+      "Samsung DeX",
       "Knox Suite",
-      "Galaxy Watch",
+      "Galaxy A56",
     ],
     stats: [
-      { value: "MIL-STD", label: "Rugged certification" },
-      { value: "IP68", label: "Dust & water resistance" },
-      { value: "14hr", label: "Battery life" },
+      { value: "$599", label: "XCover7 Pro starting" },
+      { value: "$729", label: "Tab Active5 Pro starting" },
+      { value: "Knox", label: "Defense-grade security" },
     ],
     cta: "Explore Manufacturing Solutions",
   },
