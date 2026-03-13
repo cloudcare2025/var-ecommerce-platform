@@ -33,9 +33,9 @@ export const industries: IndustrySolution[] = [
   {
     slug: "education",
     name: "Education",
-    headline: "Technology that inspires learning",
+    headline: "Powering the anywhere classroom",
     description:
-      "Samsung education solutions bring interactive learning to classrooms with interactive displays, Chromebooks, tablets, and Knox device management. From K-12 to higher education, equip students and educators with tools that drive engagement and achievement.",
+      "Samsung Chromebooks and interactive displays make it easy to embrace digital learning at every level. From affordable 1:1 programs with simplified management to collaborative tools and campus-wide signage, equip students and educators for success.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/education/04082025/B2B_Education_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
@@ -61,11 +61,11 @@ export const industries: IndustrySolution[] = [
       },
     ],
     products: [
-      "Interactive Displays",
-      "Galaxy Chromebook",
-      "Galaxy Tab",
-      "Knox Suite",
-      "Smart Signage",
+      "Galaxy Chromebook Go",
+      "Galaxy Chromebook 2",
+      "Galaxy Tab A8",
+      "Interactive Display QMB-T",
+      "Samsung VXT CMS",
     ],
     stats: [
       { value: "50M+", label: "Students using Samsung devices" },
@@ -77,31 +77,31 @@ export const industries: IndustrySolution[] = [
   {
     slug: "finance",
     name: "Finance",
-    headline: "Secure technology for financial services",
+    headline: "Transform your unique vision into reality",
     description:
-      "Samsung financial solutions combine government-grade Knox security with enterprise mobility to protect sensitive data, streamline branch operations, and deliver exceptional customer experiences across banking and financial services.",
+      "Samsung delivers industry expertise and innovation solutions for financial services. Increase operational efficiency, drive growth across branch and field operations, and manage risk with embedded Knox security and comprehensive device management.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/finance/04082025/B2B_Finance_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
-        title: "Government-Grade Security",
+        title: "Increase Operational Efficiency",
         description:
-          "Samsung Knox Vault provides hardware-backed security with FIPS 140-3 certification, protecting customer financial data and meeting regulatory compliance requirements.",
+          "Harness leading technology solutions to streamline workflows and drive greater employee experience across branch and field operations.",
       },
       {
         title: "Branch Transformation",
         description:
-          "Interactive displays and digital signage modernize branch experiences with self-service kiosks, digital menu boards, and queue management solutions.",
+          "Create seamless banking experiences with interactive displays, digital signage, and secure customer data protection throughout every branch location.",
       },
       {
-        title: "Secure Mobile Banking",
+        title: "Agent in a Box",
         description:
-          "Galaxy smartphones with Knox security enable secure mobile banking for employees and customers with containerized work profiles and encrypted communications.",
+          "Mobile solution enabling insurance and financial agents to meet customers anywhere with secure Galaxy devices and Knox containerization.",
       },
       {
-        title: "Compliance & Data Protection",
+        title: "Manage Risk & Governance",
         description:
-          "Built-in compliance features help meet FINRA, PCI DSS, and SOX requirements with audit trails, remote wipe capabilities, and encryption at rest.",
+          "Secure sensitive customer data and interactions with embedded Knox security and comprehensive device management for regulatory compliance.",
       },
     ],
     products: [
@@ -121,44 +121,44 @@ export const industries: IndustrySolution[] = [
   {
     slug: "government",
     name: "Government",
-    headline: "Mission-ready technology for government",
+    headline: "From the conference room to the command center",
     description:
-      "Samsung government solutions deliver military-grade security, rugged devices, and secure communications for federal, state, and local agencies. Built on the Knox platform with Common Criteria and FIPS certifications.",
+      "From the front office to the front lines, government agencies trust Samsung to help take on the nation's toughest challenges. Secure, optimized, and versatile solutions with defense-grade Knox security, TAA-compliant displays, and MIL-STD-810H certified devices.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/government/04082025/B2B_Government_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
-        title: "Defense-Grade Security",
+        title: "Secure",
         description:
-          "Samsung Knox is certified by the DoD and meets Common Criteria, FIPS 140-3, and NSA CSfC requirements for classified and sensitive environments.",
+          "Trusted and proven to meet the most stringent government requirements. Devices built with defense-grade Knox security at every level and at all times.",
       },
       {
-        title: "Rugged Field Devices",
+        title: "Optimized",
         description:
-          "Galaxy XCover and Tab Active series provide MIL-STD-810H rated durability for field operations, law enforcement, and first responders.",
+          "Combination of COTS hardware, custom firmware, and flexible management tools for cost-effective solutions tailored to mission requirements.",
       },
       {
-        title: "Secure Communications",
+        title: "Versatile",
         description:
-          "End-to-end encrypted messaging and calls with Knox security keep government communications protected from interception.",
+          "High-performance and rugged displays, smartphones, tablets, and wearables that are enterprise-ready and integrate seamlessly with federal IT environments.",
       },
       {
-        title: "FedRAMP Ready",
+        title: "TAA & MIL-STD Compliant",
         description:
-          "Knox cloud infrastructure meets FedRAMP requirements for government cloud deployments with US-based data residency options.",
+          "Galaxy Book devices pass 16 tests at the MIL-STD-810H level. TAA-compliant monitors and displays meet federal procurement requirements.",
       },
     ],
     products: [
-      "Galaxy XCover",
-      "Galaxy Tab Active",
-      "Knox Suite",
-      "Galaxy S Series",
-      "Rugged Accessories",
+      "Galaxy Smartphones & Foldables",
+      "Galaxy Tab Active (Rugged)",
+      "Galaxy Book (MIL-STD-810H)",
+      "The Wall MicroLED",
+      "TAA-Compliant Monitors",
     ],
     stats: [
-      { value: "DoD", label: "Approved platform" },
-      { value: "MIL-STD", label: "810H certified devices" },
-      { value: "50+", label: "Government agencies served" },
+      { value: "16", label: "MIL-STD-810H tests passed" },
+      { value: "TAA", label: "Compliant for federal procurement" },
+      { value: "Knox", label: "Defense-grade security platform" },
     ],
     cta: "Explore Government Solutions",
   },
