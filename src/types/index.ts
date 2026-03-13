@@ -1,16 +1,10 @@
 export type ProductCategory =
-  | "firewalls"
-  | "switches"
-  | "access-points"
-  | "security-services"
-  | "support"
-  | "management"
-  | "secure-access"
-  | "endpoint"
-  | "email-security"
-  | "accessories"
-  | "power-supplies"
-  | "promotions";
+  | "business-monitors"
+  | "computing"
+  | "digital-signage"
+  | "mobile-tablets"
+  | "software-services"
+  | "accessories";
 
 export interface Product {
   id: string;
@@ -20,7 +14,7 @@ export interface Product {
   tagline: string;
   description: string;
   image: string;
-  msrp: number; // cents — MSRP from retailPrice on DistributorListing
+  msrp: number; // cents
   features: string[];
   specs?: Record<string, string>;
   badge?: string;

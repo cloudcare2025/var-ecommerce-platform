@@ -1,24 +1,21 @@
 import type { Metadata } from "next";
-import { getProductBySlug, getRelatedProducts, getCategoryBySlug } from "@/lib/db/products";
+import { products, getProductBySlug, getRelatedProducts, getCategoryBySlug } from "@/data/products";
 import { ProductDetailClient } from "./product-detail-client";
 import { notFound } from "next/navigation";
-import {
-  JsonLd,
-  generateProductJsonLd,
-  generateBreadcrumbJsonLd,
-  generateFaqJsonLd,
-} from "@/components/seo/JsonLd";
-import { generateMetaKeywords } from "@/lib/seo/meta-keywords";
 
-const BASE_URL = "https://storefront-sonicwall-production.up.railway.app";
+const BASE_URL = "https://samsung-store.example.com";
 
 type Props = {
   params: Promise<{ slug: string }>;
 };
 
+export async function generateStaticParams() {
+  return products.map((p) => ({ slug: p.slug }));
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = getProductBySlug(slug);
 
   if (!product) {
     return {
@@ -27,54 +24,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const title =
-    product.metaTitle ||
-    `${product.name} — ${product.tagline || "SonicWall Security"}`;
+  const title = `${product.name} — ${product.tagline || "Samsung Business"}`;
   const description =
-    product.metaDescription ||
-    (product.description.length > 160
+    product.description.length > 160
       ? product.description.slice(0, 157) + "..."
-      : product.description);
-  const ogTitle = product.ogTitle || `${product.name} | SonicWall Store`;
-  const ogDesc = product.ogDescription || description;
-  const ogImg = product.ogImage || product.image;
-  const canonical = product.canonicalUrl || `${BASE_URL}/products/${product.slug}`;
-
-  // Generate keywords: use searchKeywords from content, or generate from product data
-  const keywords =
-    product.searchKeywords && product.searchKeywords.length > 0
-      ? product.searchKeywords
-      : generateMetaKeywords(
-          product,
-          {
-            searchKeywords: product.searchKeywords,
-            series: product.series,
-          },
-          product.mpn,
-        );
+      : product.description;
+  const ogTitle = `${product.name} | Samsung Business Store`;
+  const ogImg = product.image;
+  const canonical = `${BASE_URL}/products/${product.slug}`;
 
   return {
     title,
     description,
-    keywords,
     openGraph: {
       type: "website",
       title: ogTitle,
-      description: ogDesc,
+      description,
       url: canonical,
       images: [
         {
           url: ogImg.startsWith("http") ? ogImg : `${BASE_URL}${ogImg}`,
           width: 1200,
           height: 630,
-          alt: `${product.name} — SonicWall`,
+          alt: `${product.name} — Samsung`,
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
-      description: ogDesc,
+      description,
       images: [ogImg.startsWith("http") ? ogImg : `${BASE_URL}${ogImg}`],
     },
     alternates: {
@@ -85,45 +64,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductDetailPage({ params }: Props) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = getProductBySlug(slug);
 
   if (!product) notFound();
 
-  const categoryInfo = await getCategoryBySlug(product.category);
-  const relatedProducts = await getRelatedProducts(slug, 4);
-
-  const breadcrumbs = [
-    { name: "Home", url: "/" },
-    { name: "Products", url: "/products" },
-    ...(categoryInfo
-      ? [
-          {
-            name: categoryInfo.name,
-            url: `/products/category/${categoryInfo.slug}`,
-          },
-        ]
-      : []),
-    { name: product.name, url: `/products/${product.slug}` },
-  ];
-
-  // Enhanced Product JSON-LD with extras (sku, categoryName)
-  const productJsonLd = generateProductJsonLd(product, {
-    categoryName: categoryInfo?.name ?? undefined,
-  });
+  const catInfo = getCategoryBySlug(product.category);
+  const related = getRelatedProducts(slug, 4);
 
   return (
-    <>
-      <JsonLd data={productJsonLd} />
-      <JsonLd data={generateBreadcrumbJsonLd(breadcrumbs)} />
-      {product.faqContent && product.faqContent.length > 0 && (
-        <JsonLd data={generateFaqJsonLd(product.faqContent)} />
-      )}
-      <ProductDetailClient
-        product={product}
-        relatedProducts={relatedProducts}
-        categoryName={categoryInfo?.name ?? null}
-        categorySlug={categoryInfo?.slug ?? null}
-      />
-    </>
+    <ProductDetailClient
+      product={product}
+      relatedProducts={related}
+      categoryName={catInfo?.name ?? null}
+      categorySlug={catInfo?.id ?? null}
+    />
   );
 }

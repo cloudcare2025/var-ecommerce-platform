@@ -1,88 +1,78 @@
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import {
+  Monitor,
+  Laptop,
+  PanelTop,
+  Tablet,
+  Settings,
+  ArrowRight,
+} from "lucide-react";
 
-const showcaseItems = [
+const categories = [
   {
-    category: "firewalls",
-    label: "Network Security",
-    title: "Next-Gen Firewalls",
-    description:
-      "Multi-engine threat protection with Real-Time Deep Memory Inspection for networks of any size.",
-    image: "/images/products/hero-firewalls.jpeg",
-    href: "/products/category/firewalls",
+    slug: "business-monitors",
+    icon: Monitor,
+    title: "Business Monitors",
+    description: "Professional displays for every workspace",
+    href: "/products/category/business-monitors",
   },
   {
-    category: "switches",
-    label: "Infrastructure",
-    title: "Managed Switches",
-    description:
-      "PoE+ managed switches with zero-touch deployment and centralized cloud management.",
-    image: "/images/products/SWS-Series-Stacked.png",
-    href: "/products/category/switches",
-    light: true,
+    slug: "computing",
+    icon: Laptop,
+    title: "Computing",
+    description: "Galaxy Book laptops & Chromebooks",
+    href: "/products/category/computing",
   },
   {
-    category: "secure-access",
-    label: "Secure Access",
-    title: "Cloud Secure Edge",
-    description:
-      "Zero Trust network access without VPN complexity. Secure cloud, SaaS, and hybrid work.",
-    image: "/images/products/video-poster-cse.jpg",
-    href: "/products/category/secure-access",
+    slug: "digital-signage",
+    icon: PanelTop,
+    title: "Digital Signage & Displays",
+    description: "Smart signage, LED walls & commercial TVs",
+    href: "/products/category/digital-signage",
   },
   {
-    category: "endpoint",
-    label: "Endpoint",
-    title: "Managed Detection & Response",
-    description:
-      "24/7 SOC monitoring with expert threat hunting and rapid incident response.",
-    image: "/images/products/hero-management.jpeg",
-    href: "/products/category/endpoint",
+    slug: "mobile-tablets",
+    icon: Tablet,
+    title: "Mobile & Tablets",
+    description: "Galaxy smartphones & tablets for enterprise",
+    href: "/products/category/mobile-tablets",
+  },
+  {
+    slug: "software-services",
+    icon: Settings,
+    title: "Software & Services",
+    description: "Knox, MagicINFO, VXT & Care+",
+    href: "/products/category/software-services",
   },
 ];
 
 export function CategoryShowcase() {
   return (
-    <section className="py-20 bg-[#F5F5F3]">
+    <section className="py-16 bg-[#F7F7F7]">
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="text-center mb-12">
-          <p className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#0075DB] mb-2">
+          <h2 className="font-heading text-[36px] md:text-[42px] font-light text-[#111111] leading-tight">
             Browse by Category
-          </p>
-          <h2 className="font-heading text-[42px] font-light text-[#020817] leading-tight">
-            Solutions for every layer of security.
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {showcaseItems.map((item) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {categories.map((cat) => (
             <Link
-              key={item.category}
-              href={item.href}
-              className="group relative rounded-2xl overflow-hidden min-h-[280px] flex items-end"
+              key={cat.slug}
+              href={cat.href}
+              className="group gradient-samsung-soft rounded-xl p-6 border border-[#E5E5E5] hover:shadow-lg transition-shadow"
             >
-              <Image
-                src={item.image}
-                alt={item.title}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className={`absolute inset-0 ${item.light ? "bg-gradient-to-t from-[#020817]/70 via-[#020817]/20 to-transparent" : "bg-gradient-to-t from-[#020817]/80 via-[#020817]/30 to-transparent"}`} />
-              <div className="relative z-10 p-8 w-full">
-                <p className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#8DC1FC] mb-1">
-                  {item.label}
-                </p>
-                <h3 className="font-heading text-2xl font-light text-white mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-white/70 text-sm mb-3 max-w-sm">
-                  {item.description}
-                </p>
-                <span className="inline-flex items-center gap-1 text-white text-sm font-bold group-hover:gap-2 transition-all">
-                  Shop Now <ArrowRight className="w-4 h-4" />
-                </span>
+              <div className="w-12 h-12 rounded-full bg-[#1428A0]/10 flex items-center justify-center mb-4">
+                <cat.icon className="w-6 h-6 text-[#1428A0]" />
               </div>
+              <h3 className="font-heading text-lg text-[#111111] mb-1">
+                {cat.title}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">{cat.description}</p>
+              <span className="inline-flex items-center gap-1 text-[#1428A0] text-sm font-semibold group-hover:gap-2 transition-all">
+                Explore <ArrowRight className="w-4 h-4" />
+              </span>
             </Link>
           ))}
         </div>

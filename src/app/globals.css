@@ -1,71 +1,71 @@
 @import "tailwindcss";
 
-/* ── SonicWall Design Tokens ── */
+/* ── Samsung Design Tokens ── */
 :root {
-  --sw-blue: #0075DB;
-  --sw-blue-light: #8DC1FC;
-  --sw-blue-soft-start: #BDDBFA;
-  --sw-blue-soft-end: #EFF9FC;
-  --sw-dark: #1F2929;
-  --sw-foreground: #020817;
-  --sw-white: #FFFFFF;
-  --sw-orange-start: #F36E44;
-  --sw-orange-end: #FB9668;
-  --sw-gray: #F5F5F3;
-  --sw-gray-border: #E2E8F0;
-  --sw-green: #22C55E;
+  --samsung-blue: #1428A0;
+  --samsung-bright-blue: #0689D8;
+  --samsung-dark: #000000;
+  --samsung-foreground: #111111;
+  --samsung-white: #FFFFFF;
+  --samsung-light-gray: #F7F7F7;
+  --samsung-gray-border: #E5E5E5;
+  --samsung-green: #00B140;
+  --samsung-orange: #FF6900;
 
   --background: #ffffff;
-  --foreground: #020817;
+  --foreground: #111111;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-sw-blue: #0075DB;
-  --color-sw-blue-light: #8DC1FC;
-  --color-sw-dark: #1F2929;
-  --color-sw-orange: #F36E44;
-  --color-sw-orange-end: #FB9668;
-  --color-sw-gray: #F5F5F3;
-  --color-sw-gray-border: #E2E8F0;
-  --color-sw-green: #22C55E;
-  --font-heading: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --color-samsung-blue: #1428A0;
+  --color-samsung-bright-blue: #0689D8;
+  --color-samsung-dark: #000000;
+  --color-samsung-orange: #FF6900;
+  --color-samsung-gray: #F7F7F7;
+  --color-samsung-gray-border: #E5E5E5;
+  --color-samsung-green: #00B140;
+  --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ── Base ── */
 body {
-  background: var(--sw-white);
-  color: var(--sw-foreground);
+  background: var(--samsung-white);
+  color: var(--samsung-foreground);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── SonicWall Gradients ── */
-.gradient-blue-ribbon {
-  background: linear-gradient(90deg, #0075DB, #8DC1FC);
+/* ── Samsung Gradients ── */
+.gradient-samsung-blue {
+  background: linear-gradient(90deg, #1428A0, #0689D8);
 }
-.gradient-blue-soft {
-  background: linear-gradient(90deg, #BDDBFA, #EFF9FC);
+.gradient-samsung-soft {
+  background: linear-gradient(135deg, #E8F0FE, #F7F7F7);
 }
-.gradient-orange {
-  background: linear-gradient(90deg, #F36E44, #FB9668);
+.gradient-samsung-dark {
+  background: linear-gradient(90deg, #000000, #1A1A1A);
+}
+.gradient-samsung-accent {
+  background: linear-gradient(90deg, #0689D8, #00B140);
 }
 .gradient-dark-overlay {
   background: linear-gradient(0deg, rgba(0,0,0,0.7), rgba(0,0,0,0.7));
 }
 
-/* ── SonicWall Typography Classes ── */
+/* ── Samsung Typography Classes ── */
 .font-heading {
-  font-family: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
 }
 .font-body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* ── SonicWall Wave Background ── */
+/* ── Samsung Geometric Background ── */
 .wave-bg::after {
   content: '';
   position: absolute;

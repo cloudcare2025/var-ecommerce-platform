@@ -1,111 +1,54 @@
-"use client";
-
-import { useState } from "react";
-import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Quote } from "lucide-react";
 
 const testimonials = [
   {
     quote:
-      "SonicWall has been our go-to security partner for over a decade. Their firewalls provide enterprise-grade protection at a price point that works for our mid-market clients.",
-    author: "Director of IT",
-    company: "Regional Healthcare Network",
-    image: "/images/testimonial-bg-1.png",
+      "Samsung Galaxy tablets integrated with our proprietary software transformed our connected trucking fleet operations.",
+    author: "VP of Technology",
+    company: "Schneider",
   },
   {
     quote:
-      "The Cloud Secure Edge platform transformed how we handle remote access. Zero Trust without the complexity of traditional VPNs — our team was productive from day one.",
-    author: "VP of Infrastructure",
-    company: "Financial Services Firm",
-    image: "/images/testimonial-bg-2.png",
+      "Samsung\u2019s digital display solutions enlivened our airport shopping experience, driving customer engagement to new heights.",
+    author: "CTO",
+    company: "Duty Free Americas",
   },
   {
     quote:
-      "Deploying SonicWall across 200+ retail locations was seamless with Zero-Touch Deployment. NSM gives us a single pane of glass to manage everything.",
-    author: "CISO",
-    company: "National Retail Chain",
-    image: "/images/testimonial-bg-3.png",
+      "The Wall by Samsung took our automotive design process to the next level with stunning MicroLED visualization.",
+    author: "Head of Design",
+    company: "Lucid Motors",
   },
 ];
 
 export function TestimonialsSection() {
-  const [current, setCurrent] = useState(0);
-
-  function next() {
-    setCurrent((c) => (c + 1) % testimonials.length);
-  }
-  function prev() {
-    setCurrent((c) => (c - 1 + testimonials.length) % testimonials.length);
-  }
-
-  const t = testimonials[current];
-
   return (
-    <section className="py-20 bg-white">
+    <section className="py-16 bg-white">
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="text-center mb-12">
-          <p className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#0075DB] mb-2">
-            Customer Stories
-          </p>
-          <h2 className="font-heading text-[42px] font-light text-[#020817] leading-tight">
-            Trusted by organizations worldwide.
+          <h2 className="font-heading text-[36px] md:text-[42px] font-light text-[#111111] leading-tight">
+            Trusted by Industry Leaders
           </h2>
         </div>
 
-        <div className="relative max-w-4xl mx-auto">
-          <div className="relative rounded-2xl overflow-hidden min-h-[320px]">
-            <Image
-              src={t.image}
-              alt=""
-              fill
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-[#020817]/75" />
-            <div className="relative z-10 flex flex-col justify-center items-center text-center p-12 min-h-[320px]">
-              <Image
-                src="/images/quotation-mark.svg"
-                alt=""
-                width={48}
-                height={48}
-                className="mb-6 opacity-60"
-              />
-              <blockquote className="text-xl md:text-2xl text-white font-light leading-relaxed mb-6 max-w-2xl">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {testimonials.map((t) => (
+            <div
+              key={t.company}
+              className="bg-white border border-[#E5E5E5] rounded-xl p-8 flex flex-col"
+            >
+              <Quote className="w-8 h-8 text-[#1428A0]/20 mb-4 shrink-0" />
+              <blockquote className="text-[#111111] text-base leading-relaxed mb-6 flex-1">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
-              <p className="text-white font-bold text-sm">{t.author}</p>
-              <p className="text-white/60 text-sm">{t.company}</p>
+              <div className="border-t border-[#E5E5E5] pt-4">
+                <p className="font-semibold text-sm text-[#111111]">
+                  {t.author}
+                </p>
+                <p className="text-sm text-gray-500">{t.company}</p>
+              </div>
             </div>
-          </div>
-
-          {/* Navigation */}
-          <div className="flex items-center justify-center gap-4 mt-6">
-            <button
-              onClick={prev}
-              className="w-10 h-10 rounded-full border border-[#E2E8F0] flex items-center justify-center hover:bg-gray-50 transition-colors"
-              aria-label="Previous testimonial"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className="flex gap-2">
-              {testimonials.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrent(i)}
-                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                    i === current ? "bg-[#0075DB]" : "bg-[#E2E8F0]"
-                  }`}
-                  aria-label={`Go to testimonial ${i + 1}`}
-                />
-              ))}
-            </div>
-            <button
-              onClick={next}
-              className="w-10 h-10 rounded-full border border-[#E2E8F0] flex items-center justify-center hover:bg-gray-50 transition-colors"
-              aria-label="Next testimonial"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+          ))}
         </div>
       </div>
     </section>

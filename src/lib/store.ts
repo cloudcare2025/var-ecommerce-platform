@@ -68,6 +68,6 @@ export const useCartStore = create<CartStore>()(
       itemCount: () =>
         get().items.reduce((sum, item) => sum + item.quantity, 0),
     }),
-    { name: "sonicwall-cart" }
+    { name: "samsung-cart" }
   )
 );

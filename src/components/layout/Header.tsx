@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   Search,
@@ -9,18 +8,26 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  Shield,
-  Wifi,
-  Cloud,
+  Monitor,
+  Laptop,
+  Smartphone,
+  Tv,
+  Presentation,
+  Tablet,
+  Building2,
+  GraduationCap,
+  Landmark,
+  Stethoscope,
+  Hotel,
+  Factory,
+  ShieldCheck,
+  ShoppingCart,
+  Truck,
+  Lock,
+  AppWindow,
   MonitorSmartphone,
-  Settings,
-  Wrench,
-  Zap,
-  Mail,
-  Network,
-  FileKey,
-  HeadphonesIcon,
-  Layers,
+  Headset,
+  Cpu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,89 +35,89 @@ import { cn } from "@/lib/utils";
 
 const productGroups = [
   {
-    title: "Security",
+    title: "Displays",
     items: [
       {
-        label: "Firewalls",
-        href: "/products/category/firewalls",
-        icon: Shield,
-        description: "Next-Gen Firewall Appliances",
+        label: "Smart Signage",
+        href: "/products/category/digital-signage",
+        icon: Presentation,
+        description: "Interactive digital displays",
       },
       {
-        label: "Security Services",
-        href: "/products/category/security-services",
-        icon: Layers,
-        description: "Subscription Threat Protection",
+        label: "LED Signage",
+        href: "/products/category/digital-signage",
+        icon: Tv,
+        description: "Indoor & outdoor LED walls",
       },
       {
-        label: "Endpoint Security",
-        href: "/products/category/endpoint",
+        label: "Commercial TVs",
+        href: "/products/category/digital-signage",
+        icon: Monitor,
+        description: "Hospitality & enterprise TVs",
+      },
+      {
+        label: "Business Monitors",
+        href: "/products/category/business-monitors",
+        icon: Monitor,
+        description: "Professional-grade monitors",
+      },
+    ],
+  },
+  {
+    title: "Computing",
+    items: [
+      {
+        label: "Galaxy Book",
+        href: "/products/category/computing",
+        icon: Laptop,
+        description: "Business laptops & 2-in-1s",
+      },
+      {
+        label: "Chromebook",
+        href: "/products/category/computing",
+        icon: Laptop,
+        description: "Chrome OS for enterprise",
+      },
+      {
+        label: "Monitors",
+        href: "/products/category/business-monitors",
+        icon: Monitor,
+        description: "High-resolution displays",
+      },
+      {
+        label: "Memory & Storage",
+        href: "/products/category/accessories",
+        icon: Cpu,
+        description: "SSDs, microSD & RAM",
+      },
+    ],
+  },
+  {
+    title: "Mobile",
+    items: [
+      {
+        label: "Smartphones",
+        href: "/products/category/mobile-tablets",
+        icon: Smartphone,
+        description: "Galaxy S & A series for business",
+      },
+      {
+        label: "Tablets",
+        href: "/products/category/mobile-tablets",
+        icon: Tablet,
+        description: "Galaxy Tab for enterprise",
+      },
+      {
+        label: "Wearables",
+        href: "/products/category/mobile-tablets",
         icon: MonitorSmartphone,
-        description: "Capture Client EDR",
-      },
-      {
-        label: "Email Security",
-        href: "/products/category/email-security",
-        icon: Mail,
-        description: "Anti-Phishing & Protection",
-      },
-    ],
-  },
-  {
-    title: "Networking",
-    items: [
-      {
-        label: "Switches",
-        href: "/products/category/switches",
-        icon: Network,
-        description: "Managed PoE+ Switches",
-      },
-      {
-        label: "Access Points",
-        href: "/products/category/access-points",
-        icon: Wifi,
-        description: "Wi-Fi 6 Access Points",
-      },
-      {
-        label: "Secure Access",
-        href: "/products/category/secure-access",
-        icon: Cloud,
-        description: "SMA, SASE & Zero Trust",
-      },
-    ],
-  },
-  {
-    title: "Services & Hardware",
-    items: [
-      {
-        label: "Management",
-        href: "/products/category/management",
-        icon: Settings,
-        description: "NSM & Analytics",
-      },
-      {
-        label: "Support & Warranty",
-        href: "/products/category/support",
-        icon: HeadphonesIcon,
-        description: "24x7 Support Contracts",
+        description: "Galaxy Watch & Buds",
       },
       {
         label: "Accessories",
         href: "/products/category/accessories",
-        icon: Wrench,
-        description: "SFP Modules & Mounts",
-      },
-      {
-        label: "Power Supplies",
-        href: "/products/category/power-supplies",
-        icon: Zap,
-        description: "Replacement PSUs",
-      },
-      {
-        label: "Trade-Up & Promos",
-        href: "/products/category/promotions",
-        icon: FileKey,
-        description: "Upgrade Programs",
+        icon: Headset,
+        description: "Cases, chargers & more",
       },
     ],
   },
@@ -120,20 +127,25 @@ const solutionGroups = [
   {
     title: "By Industry",
     items: [
-      { label: "Distributed Enterprises", href: "/solutions" },
-      { label: "Retail & Hospitality", href: "/solutions" },
-      { label: "K-12 Education", href: "/solutions" },
-      { label: "Healthcare", href: "/solutions" },
-      { label: "Financial Services", href: "/solutions" },
+      { label: "Education", href: "/solutions", icon: GraduationCap },
+      { label: "Finance", href: "/solutions", icon: Landmark },
+      { label: "Government", href: "/solutions", icon: Building2 },
+      { label: "Healthcare", href: "/solutions", icon: Stethoscope },
+      { label: "Hospitality", href: "/solutions", icon: Hotel },
+      { label: "Manufacturing", href: "/solutions", icon: Factory },
+      { label: "Public Safety", href: "/solutions", icon: ShieldCheck },
+      { label: "Retail", href: "/solutions", icon: ShoppingCart },
+      { label: "Transportation", href: "/solutions", icon: Truck },
     ],
   },
   {
-    title: "By Use Case",
+    title: "Software & Services",
     items: [
-      { label: "Hybrid Mesh Firewall", href: "/solutions" },
-      { label: "Secure SD-WAN", href: "/solutions" },
-      { label: "Zero Trust Security", href: "/solutions" },
-      { label: "Secure Wi-Fi", href: "/solutions" },
+      { label: "Knox Suite", href: "/products/category/software-services", icon: Lock },
+      { label: "Samsung DeX", href: "/products/category/software-services", icon: MonitorSmartphone },
+      { label: "MagicINFO", href: "/products/category/software-services", icon: AppWindow },
+      { label: "VXT", href: "/products/category/software-services", icon: Tv },
+      { label: "Care+ for Business", href: "/products/category/software-services", icon: Headset },
     ],
   },
 ];
@@ -146,26 +158,26 @@ export function Header() {
   return (
     <>
       {/* Promo Banner */}
-      <div className="gradient-blue-ribbon text-white text-center py-2.5 px-4 text-sm">
-        <span className="font-semibold">SONICWALL STORE</span>
+      <div className="gradient-samsung-blue text-white text-center py-2.5 px-4 text-sm">
+        <span className="font-semibold">SAMSUNG BUSINESS</span>
         <span className="mx-2">|</span>
-        <span>Shop enterprise cybersecurity solutions with instant quotes</span>
+        <span>Enterprise technology solutions with volume pricing</span>
       </div>
 
       {/* Top utility bar */}
-      <div className="border-b border-[#E2E8F0] bg-white">
+      <div className="border-b border-[#E5E5E5] bg-white">
         <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-between py-1.5 text-[13px]">
           <div className="hidden md:flex gap-6">
-            <Link href="/promotions" className="hover:text-[#0075DB] transition-colors">
-              Promotions
+            <Link href="/offers" className="hover:text-[#1428A0] transition-colors">
+              Offers
             </Link>
-            <Link href="/resources" className="hover:text-[#0075DB] transition-colors">
-              Resources
+            <Link href="/industries" className="hover:text-[#1428A0] transition-colors">
+              Industries
             </Link>
-            <Link href="/blog" className="hover:text-[#0075DB] transition-colors">
-              Blog
+            <Link href="/insights" className="hover:text-[#1428A0] transition-colors">
+              Insights
             </Link>
-            <Link href="/support" className="hover:text-[#0075DB] transition-colors">
+            <Link href="/support" className="hover:text-[#1428A0] transition-colors">
               Support
             </Link>
           </div>
@@ -173,7 +185,7 @@ export function Header() {
             <span className="text-gray-500">Need help?</span>
             <Link
               href="/contact"
-              className="font-semibold text-[#0075DB] hover:underline"
+              className="font-semibold text-[#1428A0] hover:underline"
             >
               Contact Sales
             </Link>
@@ -182,18 +194,12 @@ export function Header() {
       </div>
 
       {/* Main Header */}
-      <header className="bg-white sticky top-0 z-50 border-b border-[#E2E8F0] shadow-sm">
+      <header className="bg-white sticky top-0 z-50 border-b border-[#E5E5E5] shadow-sm">
         <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex-shrink-0">
-            <Image
-              src="/images/logo.svg"
-              alt="SonicWall"
-              width={147}
-              height={24}
-              priority
-              className="h-6 w-auto"
-            />
+          <Link href="/" className="flex-shrink-0 flex items-baseline">
+            <span className="text-2xl font-bold tracking-tight text-black">SAMSUNG</span>
+            <span className="text-sm ml-2 text-gray-400">Business</span>
           </Link>
 
           {/* Desktop Nav */}
@@ -204,7 +210,7 @@ export function Header() {
               onMouseEnter={() => setActiveMenu("Products")}
               onMouseLeave={() => setActiveMenu(null)}
             >
-              <button className="flex items-center gap-1 px-4 py-5 text-[15px] font-semibold text-[#020817] hover:text-[#0075DB] transition-colors">
+              <button className="flex items-center gap-1 px-4 py-5 text-[15px] font-semibold text-[#020817] hover:text-[#1428A0] transition-colors">
                 Products
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
@@ -212,7 +218,7 @@ export function Header() {
               {/* Mega Menu Panel */}
               <div
                 className={cn(
-                  "absolute top-full left-1/2 -translate-x-1/2 bg-white border border-[#E2E8F0] rounded-xl shadow-2xl p-8 min-w-[780px] transition-all duration-200",
+                  "absolute top-full left-1/2 -translate-x-1/2 bg-white border border-[#E5E5E5] rounded-xl shadow-2xl p-8 min-w-[780px] transition-all duration-200",
                   activeMenu === "Products"
                     ? "opacity-100 visible translate-y-0"
                     : "opacity-0 invisible -translate-y-2",
@@ -221,7 +227,7 @@ export function Header() {
                 <div className="grid grid-cols-3 gap-8">
                   {productGroups.map((group) => (
                     <div key={group.title}>
-                      <h6 className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#0075DB] mb-4">
+                      <h6 className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#1428A0] mb-4">
                         {group.title}
                       </h6>
                       <div className="space-y-1">
@@ -231,11 +237,11 @@ export function Header() {
                             <Link
                               key={item.label}
                               href={item.href}
-                              className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-[#F5F5F3] transition-colors group/item"
+                              className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-[#F7F7F7] transition-colors group/item"
                             >
-                              <Icon className="w-4 h-4 text-[#0075DB] mt-0.5 flex-shrink-0" />
+                              <Icon className="w-4 h-4 text-[#1428A0] mt-0.5 flex-shrink-0" />
                               <div>
-                                <p className="text-[14px] font-medium text-[#1F2929] group-hover/item:text-[#0075DB] transition-colors">
+                                <p className="text-[14px] font-medium text-[#000000] group-hover/item:text-[#1428A0] transition-colors">
                                   {item.label}
                                 </p>
                                 <p className="text-[12px] text-gray-400">
@@ -249,10 +255,10 @@ export function Header() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 pt-5 border-t border-[#E2E8F0]">
+                <div className="mt-6 pt-5 border-t border-[#E5E5E5]">
                   <Link
                     href="/products"
-                    className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#0075DB] hover:gap-3 transition-all"
+                    className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#1428A0] hover:gap-3 transition-all"
                   >
                     View All Products
                     <ChevronRight className="w-4 h-4" />
@@ -267,14 +273,14 @@ export function Header() {
               onMouseEnter={() => setActiveMenu("Solutions")}
               onMouseLeave={() => setActiveMenu(null)}
             >
-              <button className="flex items-center gap-1 px-4 py-5 text-[15px] font-semibold text-[#020817] hover:text-[#0075DB] transition-colors">
+              <button className="flex items-center gap-1 px-4 py-5 text-[15px] font-semibold text-[#020817] hover:text-[#1428A0] transition-colors">
                 Solutions
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
 
               <div
                 className={cn(
-                  "absolute top-full left-1/2 -translate-x-1/2 bg-white border border-[#E2E8F0] rounded-lg shadow-xl p-6 min-w-[480px] transition-all duration-200",
+                  "absolute top-full left-1/2 -translate-x-1/2 bg-white border border-[#E5E5E5] rounded-lg shadow-xl p-6 min-w-[520px] transition-all duration-200",
                   activeMenu === "Solutions"
                     ? "opacity-100 visible translate-y-0"
                     : "opacity-0 invisible -translate-y-2",
@@ -283,14 +289,14 @@ export function Header() {
                 <div className="grid grid-cols-2 gap-6">
                   {solutionGroups.map((group) => (
                     <div key={group.title}>
-                      <h6 className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#0075DB] mb-3">
+                      <h6 className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#1428A0] mb-3">
                         {group.title}
                       </h6>
                       {group.items.map((link) => (
                         <Link
                           key={link.label}
                           href={link.href}
-                          className="block py-1.5 text-[14px] text-[#1F2929] hover:text-[#0075DB] transition-colors"
+                          className="block py-1.5 text-[14px] text-[#000000] hover:text-[#1428A0] transition-colors"
                         >
                           {link.label}
                         </Link>
@@ -303,7 +309,7 @@ export function Header() {
 
             <Link
               href="/products"
-              className="px-4 py-5 text-[15px] font-semibold text-[#020817] hover:text-[#0075DB] transition-colors"
+              className="px-4 py-5 text-[15px] font-semibold text-[#020817] hover:text-[#1428A0] transition-colors"
             >
               Shop All
             </Link>
@@ -320,7 +326,7 @@ export function Header() {
             </Link>
             <Link
               href="/contact"
-              className="hidden md:inline-flex items-center bg-[#020817] text-white px-5 py-2.5 rounded-lg text-[14px] font-semibold hover:bg-[#333] transition-colors"
+              className="hidden md:inline-flex items-center bg-[#1428A0] text-white px-5 py-2.5 rounded-lg text-[14px] font-semibold hover:bg-[#0F1F80] transition-colors"
             >
               Get a Quote
             </Link>
@@ -340,7 +346,7 @@ export function Header() {
 
         {/* Mobile Menu */}
         {mobileOpen && (
-          <div className="lg:hidden border-t border-[#E2E8F0] bg-white px-6 py-4 space-y-2 max-h-[80vh] overflow-y-auto">
+          <div className="lg:hidden border-t border-[#E5E5E5] bg-white px-6 py-4 space-y-2 max-h-[80vh] overflow-y-auto">
             {/* Products accordion */}
             <div>
               <button
@@ -363,14 +369,14 @@ export function Header() {
                 <div className="ml-2 mb-3 space-y-3">
                   {productGroups.map((group) => (
                     <div key={group.title}>
-                      <p className="text-[11px] font-bold tracking-widest uppercase text-[#0075DB] mb-1.5">
+                      <p className="text-[11px] font-bold tracking-widest uppercase text-[#1428A0] mb-1.5">
                         {group.title}
                       </p>
                       {group.items.map((item) => (
                         <Link
                           key={item.label}
                           href={item.href}
-                          className="block py-1.5 pl-2 text-sm text-[#1F2929]"
+                          className="block py-1.5 pl-2 text-sm text-[#000000]"
                           onClick={() => setMobileOpen(false)}
                         >
                           {item.label}
@@ -404,14 +410,14 @@ export function Header() {
                 <div className="ml-2 mb-3 space-y-3">
                   {solutionGroups.map((group) => (
                     <div key={group.title}>
-                      <p className="text-[11px] font-bold tracking-widest uppercase text-[#0075DB] mb-1.5">
+                      <p className="text-[11px] font-bold tracking-widest uppercase text-[#1428A0] mb-1.5">
                         {group.title}
                       </p>
                       {group.items.map((link) => (
                         <Link
                           key={link.label}
                           href={link.href}
-                          className="block py-1.5 pl-2 text-sm text-[#1F2929]"
+                          className="block py-1.5 pl-2 text-sm text-[#000000]"
                           onClick={() => setMobileOpen(false)}
                         >
                           {link.label}
@@ -425,14 +431,14 @@ export function Header() {
 
             <Link
               href="/products"
-              className="block w-full text-center bg-[#020817] text-white py-3 rounded-lg font-semibold mt-4"
+              className="block w-full text-center bg-[#1428A0] text-white py-3 rounded-lg font-semibold mt-4"
               onClick={() => setMobileOpen(false)}
             >
               Shop All Products
             </Link>
             <Link
               href="/contact"
-              className="block w-full text-center border-2 border-[#0075DB] text-[#0075DB] py-3 rounded-lg font-semibold"
+              className="block w-full text-center border-2 border-[#1428A0] text-[#1428A0] py-3 rounded-lg font-semibold"
               onClick={() => setMobileOpen(false)}
             >
               Get a Quote

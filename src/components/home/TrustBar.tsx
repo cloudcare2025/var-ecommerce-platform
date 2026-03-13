@@ -1,27 +1,44 @@
+import { Shield, Award, Smartphone, Lock, Building2 } from "lucide-react";
+
+const badges = [
+  {
+    icon: Shield,
+    label: "Samsung Knox Secured",
+  },
+  {
+    icon: Award,
+    label: "IDC MarketScape Leader",
+  },
+  {
+    icon: Smartphone,
+    label: "1B+ Devices Protected",
+  },
+  {
+    icon: Lock,
+    label: "FIPS 140-3 Certified",
+  },
+  {
+    icon: Building2,
+    label: "30,000+ Businesses",
+  },
+];
+
 export function TrustBar() {
   return (
-    <section className="py-8 bg-white border-b border-[#E2E8F0]">
+    <section className="py-6 bg-[#F7F7F7] border-y border-[#E5E5E5]">
       <div className="max-w-[1200px] mx-auto px-6">
-        <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-center">
-          <div>
-            <span className="font-heading text-2xl font-bold text-[#1F2929]">500K+</span>
-            <span className="text-sm text-gray-400 ml-2">Organizations Protected</span>
-          </div>
-          <span className="hidden md:block w-px h-8 bg-[#E2E8F0]" />
-          <div>
-            <span className="font-heading text-2xl font-bold text-[#1F2929]">215+</span>
-            <span className="text-sm text-gray-400 ml-2">Countries & Territories</span>
-          </div>
-          <span className="hidden md:block w-px h-8 bg-[#E2E8F0]" />
-          <div>
-            <span className="font-heading text-2xl font-bold text-[#1F2929]">17K+</span>
-            <span className="text-sm text-gray-400 ml-2">Channel Partners</span>
-          </div>
-          <span className="hidden md:block w-px h-8 bg-[#E2E8F0]" />
-          <div>
-            <span className="font-heading text-2xl font-bold text-[#1F2929]">30+</span>
-            <span className="text-sm text-gray-400 ml-2">Years of Innovation</span>
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+          {badges.map((badge) => (
+            <div
+              key={badge.label}
+              className="flex items-center gap-2.5 text-[#111111]"
+            >
+              <badge.icon className="w-5 h-5 text-[#1428A0] shrink-0" />
+              <span className="text-sm font-semibold whitespace-nowrap">
+                {badge.label}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </section>

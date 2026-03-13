@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { CheckCircle } from "lucide-react";
-import { useEffect } from "react";
 
 interface ToastStore {
   message: string | null;
@@ -25,8 +24,8 @@ export function Toast() {
   if (!message) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[200] bg-[#1F2929] text-white px-5 py-3.5 rounded-lg shadow-xl flex items-center gap-3 animate-slide-in-right">
-      <CheckCircle className="w-5 h-5 text-[#22C55E]" />
+    <div className="fixed bottom-6 right-6 z-[200] bg-[#000000] text-white px-5 py-3.5 rounded-lg shadow-xl flex items-center gap-3 animate-slide-in-right">
+      <CheckCircle className="w-5 h-5 text-[#00B140]" />
       <span className="text-sm font-semibold">{message}</span>
     </div>
   );

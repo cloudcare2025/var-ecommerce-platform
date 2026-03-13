@@ -1,36 +1,42 @@
 import { HeroSection } from "@/components/home/HeroSection";
 import { TrustBar } from "@/components/home/TrustBar";
 import { FeatureCards } from "@/components/home/FeatureCards";
-import { FeaturedProducts } from "@/components/store/FeaturedProducts";
+import { FeaturedProductsGrid } from "@/components/store/FeaturedProductsGrid";
 import { StatsSection } from "@/components/home/StatsSection";
 import { CategoryShowcase } from "@/components/home/CategoryShowcase";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { PartnersSection } from "@/components/home/PartnersSection";
 import { NewsSection } from "@/components/home/NewsSection";
+import { getFeaturedProducts } from "@/data/products";
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
+export default function Home() {
+  const featured = getFeaturedProducts(8);
 
   return (
     <>
-      {/* 1. Hero — 3-second audition: value prop + CTA */}
       <HeroSection />
-      {/* 2. Trust bar — immediate credibility (3-5s) */}
       <TrustBar />
-      {/* 3. Why SonicWall — problem agitation + differentiators */}
       <FeatureCards />
-      {/* 4. Featured products — solution overview */}
-      <FeaturedProducts />
-      {/* 5. Stats — data-driven proof */}
+      <section className="py-20 bg-white">
+        <div className="max-w-[1200px] mx-auto px-6">
+          <div className="text-center mb-12">
+            <p className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#1428A0] mb-2">
+              Shop Our Solutions
+            </p>
+            <h2 className="font-heading text-[42px] font-light text-[#000000] leading-tight mb-4">
+              Featured Products
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Professional-grade Samsung business solutions for organizations of every size.
+            </p>
+          </div>
+          <FeaturedProductsGrid products={featured} />
+        </div>
+      </section>
       <StatsSection />
-      {/* 6. Browse categories — deeper exploration */}
       <CategoryShowcase />
-      {/* 7. Testimonials — social proof */}
       <TestimonialsSection />
-      {/* 8. Partners — ecosystem credibility */}
       <PartnersSection />
-      {/* 9. News — freshness + authority */}
       <NewsSection />
     </>
   );

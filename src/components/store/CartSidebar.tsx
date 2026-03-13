@@ -27,7 +27,7 @@ export function CartSidebar() {
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[#E2E8F0]">
+        <div className="flex items-center justify-between p-5 border-b border-[#E5E5E5]">
           <h3 className="font-heading text-xl font-normal">
             Cart ({count})
           </h3>
@@ -46,16 +46,16 @@ export function CartSidebar() {
             <div className="flex flex-col items-center justify-center h-full text-center">
               <ShoppingBag className="w-12 h-12 text-gray-300 mb-4" />
               <p className="text-gray-500 font-medium mb-1">Your cart is empty</p>
-              <p className="text-sm text-gray-400">Browse our products to get started.</p>
+              <p className="text-sm text-gray-400">Browse Samsung products to get started.</p>
             </div>
           ) : (
             <div className="space-y-0">
               {items.map((item) => (
                 <div
                   key={item.product.id}
-                  className="flex gap-4 py-4 border-b border-[#E2E8F0]"
+                  className="flex gap-4 py-4 border-b border-[#E5E5E5]"
                 >
-                  <div className="w-20 h-20 bg-gradient-to-r from-[#BDDBFA] to-[#EFF9FC] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-20 h-20 gradient-samsung-soft rounded-lg flex items-center justify-center flex-shrink-0">
                     <Image
                       src={item.product.image}
                       alt={item.product.name}
@@ -84,7 +84,7 @@ export function CartSidebar() {
                           onClick={() =>
                             updateQuantity(item.product.id, item.quantity - 1)
                           }
-                          className="w-7 h-7 border border-[#E2E8F0] rounded flex items-center justify-center hover:bg-gray-50"
+                          className="w-7 h-7 border border-[#E5E5E5] rounded flex items-center justify-center hover:bg-gray-50"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
@@ -95,7 +95,7 @@ export function CartSidebar() {
                           onClick={() =>
                             updateQuantity(item.product.id, item.quantity + 1)
                           }
-                          className="w-7 h-7 border border-[#E2E8F0] rounded flex items-center justify-center hover:bg-gray-50"
+                          className="w-7 h-7 border border-[#E5E5E5] rounded flex items-center justify-center hover:bg-gray-50"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -113,14 +113,14 @@ export function CartSidebar() {
 
         {/* Footer */}
         {items.length > 0 && (
-          <div className="p-5 border-t border-[#E2E8F0] bg-[#F5F5F3]">
+          <div className="p-5 border-t border-[#E5E5E5] bg-[#F7F7F7]">
             <div className="flex justify-between items-center mb-4">
               <span className="text-base font-semibold">Total</span>
               <span className="font-heading text-2xl font-bold">
                 {formatPrice(total())}
               </span>
             </div>
-            <button className="w-full bg-[#020817] text-white py-3.5 rounded-lg font-bold text-[15px] hover:bg-[#333] transition-colors">
+            <button className="w-full bg-[#1428A0] text-white py-3.5 rounded-lg font-bold text-[15px] hover:bg-[#0F1F80] transition-colors">
               Proceed to Checkout
             </button>
             <p className="text-center text-xs text-gray-500 mt-2">

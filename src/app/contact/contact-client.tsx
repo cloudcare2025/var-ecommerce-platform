@@ -14,7 +14,7 @@ export function ContactClient() {
   return (
     <>
       {/* Hero */}
-      <section className="gradient-blue-ribbon py-20">
+      <section className="gradient-samsung-blue py-20">
         <div className="max-w-[1200px] mx-auto px-6 text-center">
           <p className="text-[11px] font-bold tracking-[0.15em] uppercase text-white/70 mb-2">
             Contact Sales
@@ -23,7 +23,7 @@ export function ContactClient() {
             Get a Custom Quote
           </h1>
           <p className="text-white/80 text-lg max-w-xl mx-auto">
-            Our security experts will help you find the right solution for your organization.
+            Our Samsung specialists will help you find the right solution for your organization.
           </p>
         </div>
       </section>
@@ -36,42 +36,42 @@ export function ContactClient() {
               <h2 className="font-heading text-2xl mb-6">Reach Out</h2>
               <div className="space-y-6">
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#0075DB]/10 flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-5 h-5 text-[#0075DB]" />
+                  <div className="w-10 h-10 rounded-lg bg-[#1428A0]/10 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-5 h-5 text-[#1428A0]" />
                   </div>
                   <div>
                     <p className="font-bold text-sm">Sales</p>
-                    <p className="text-gray-600 text-sm">1-888-557-6642</p>
+                    <p className="text-gray-600 text-sm">(866) 726-4249</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#0075DB]/10 flex items-center justify-center flex-shrink-0">
-                    <Mail className="w-5 h-5 text-[#0075DB]" />
+                  <div className="w-10 h-10 rounded-lg bg-[#1428A0]/10 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-5 h-5 text-[#1428A0]" />
                   </div>
                   <div>
                     <p className="font-bold text-sm">Email</p>
-                    <p className="text-gray-600 text-sm">sales@sonicwall-store.com</p>
+                    <p className="text-gray-600 text-sm">business@samsung-store.com</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#0075DB]/10 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-5 h-5 text-[#0075DB]" />
+                  <div className="w-10 h-10 rounded-lg bg-[#1428A0]/10 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-5 h-5 text-[#1428A0]" />
                   </div>
                   <div>
                     <p className="font-bold text-sm">Headquarters</p>
                     <p className="text-gray-600 text-sm">
-                      1033 McCarthy Blvd<br />
-                      Milpitas, CA 95035
+                      85 Challenger Road<br />
+                      Ridgefield Park, NJ 07660
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-10 p-6 bg-[#F5F5F3] rounded-xl">
+              <div className="mt-10 p-6 bg-[#F7F7F7] rounded-xl">
                 <p className="font-heading text-lg mb-2">Need help choosing?</p>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  Our security consultants can assess your environment and recommend the right
-                  SonicWall solution for your specific needs and budget.
+                  Our Samsung specialists can assess your environment and recommend the right
+                  Samsung solution for your specific needs and budget.
                 </p>
               </div>
             </div>
@@ -79,9 +79,9 @@ export function ContactClient() {
             {/* Form */}
             <div className="lg:col-span-2">
               {submitted ? (
-                <div className="text-center py-20 bg-[#F5F5F3] rounded-xl">
-                  <div className="w-16 h-16 rounded-full bg-[#22C55E]/10 flex items-center justify-center mx-auto mb-4">
-                    <Send className="w-8 h-8 text-[#22C55E]" />
+                <div className="text-center py-20 bg-[#F7F7F7] rounded-xl">
+                  <div className="w-16 h-16 rounded-full bg-[#00B140]/10 flex items-center justify-center mx-auto mb-4">
+                    <Send className="w-8 h-8 text-[#00B140]" />
                   </div>
                   <h3 className="font-heading text-2xl mb-2">Request Received</h3>
                   <p className="text-gray-600">
@@ -96,7 +96,7 @@ export function ContactClient() {
                       <input
                         type="text"
                         required
-                        className="w-full px-4 py-3 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0075DB]/30 focus:border-[#0075DB]"
+                        className="w-full px-4 py-3 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1428A0]/30 focus:border-[#1428A0]"
                         placeholder="John"
                       />
                     </div>
@@ -105,7 +105,7 @@ export function ContactClient() {
                       <input
                         type="text"
                         required
-                        className="w-full px-4 py-3 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0075DB]/30 focus:border-[#0075DB]"
+                        className="w-full px-4 py-3 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1428A0]/30 focus:border-[#1428A0]"
                         placeholder="Doe"
                       />
                     </div>
@@ -115,7 +115,7 @@ export function ContactClient() {
                     <input
                       type="email"
                       required
-                      className="w-full px-4 py-3 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0075DB]/30 focus:border-[#0075DB]"
+                      className="w-full px-4 py-3 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1428A0]/30 focus:border-[#1428A0]"
                       placeholder="john@company.com"
                     />
                   </div>
@@ -124,33 +124,33 @@ export function ContactClient() {
                     <input
                       type="text"
                       required
-                      className="w-full px-4 py-3 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0075DB]/30 focus:border-[#0075DB]"
+                      className="w-full px-4 py-3 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1428A0]/30 focus:border-[#1428A0]"
                       placeholder="Acme Corp"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-1.5">Product Interest</label>
-                    <select className="w-full px-4 py-3 border border-[#E2E8F0] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0075DB]/30 focus:border-[#0075DB]">
-                      <option>Next-Gen Firewalls</option>
-                      <option>Managed Switches</option>
-                      <option>Cloud Secure Edge</option>
-                      <option>SonicSentry MDR</option>
-                      <option>Capture Client</option>
-                      <option>Network Security Manager</option>
-                      <option>Full Security Stack</option>
+                    <select className="w-full px-4 py-3 border border-[#E5E5E5] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1428A0]/30 focus:border-[#1428A0]">
+                      <option>Business Monitors</option>
+                      <option>Computing (Galaxy Book / Chromebook)</option>
+                      <option>Digital Signage</option>
+                      <option>Mobile & Tablets</option>
+                      <option>Software & Services (Knox, MagicINFO)</option>
+                      <option>Accessories</option>
+                      <option>Full Enterprise Solution</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-bold mb-1.5">Message</label>
                     <textarea
                       rows={4}
-                      className="w-full px-4 py-3 border border-[#E2E8F0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0075DB]/30 focus:border-[#0075DB] resize-none"
-                      placeholder="Tell us about your security needs, network size, and any specific requirements..."
+                      className="w-full px-4 py-3 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1428A0]/30 focus:border-[#1428A0] resize-none"
+                      placeholder="Tell us about your business needs, fleet size, deployment timeline, and any specific requirements..."
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full bg-[#0075DB] text-white py-3.5 rounded-lg font-bold text-[15px] hover:bg-[#0066c0] transition-colors flex items-center justify-center gap-2"
+                    className="w-full bg-[#1428A0] text-white py-3.5 rounded-lg font-bold text-[15px] hover:bg-[#0f1f7a] transition-colors flex items-center justify-center gap-2"
                   >
                     <Send className="w-4 h-4" />
                     Request Quote

@@ -1,59 +1,57 @@
-import Image from "next/image";
+import { Shield, Layers, Sparkles, CreditCard } from "lucide-react";
 
-const cards = [
+const features = [
   {
-    title: "Secure",
+    icon: Shield,
+    title: "Enterprise-Grade Security",
     description:
-      "Multi-layered protection with Real-Time Deep Memory Inspection and patented Reassembly-Free Deep Packet Inspection.",
-    image: "/images/card-overlay-1.png",
+      "Samsung Knox provides defense-grade security from chip to cloud, protecting your fleet at every layer.",
   },
   {
-    title: "Scalable",
+    icon: Layers,
+    title: "Complete Ecosystem",
     description:
-      "From small offices to large data centers, our solutions scale with your business needs and grow as you do.",
-    image: "/images/card-overlay-2.png",
+      "From smartphones to signage, laptops to LED walls \u2014 one partner for your entire technology stack.",
   },
   {
-    title: "Smart",
+    icon: Sparkles,
+    title: "AI-Powered Productivity",
     description:
-      "AI-powered threat intelligence with automated response and centralized management across your entire network.",
-    image: "/images/card-overlay-3.png",
+      "Galaxy AI transforms how your teams work with intelligent features built into every device.",
+  },
+  {
+    icon: CreditCard,
+    title: "Business Programs",
+    description:
+      "Volume pricing, trade-in credits, 0% financing, and tax exemption for qualifying organizations.",
   },
 ];
 
 export function FeatureCards() {
   return (
-    <section className="py-20 bg-white">
+    <section className="py-16 bg-white">
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="text-center mb-12">
-          <p className="text-[11px] font-bold tracking-[0.15em] uppercase text-[#0075DB] mb-2">
-            Why SonicWall
-          </p>
-          <h2 className="font-heading text-[42px] font-light text-[#020817] leading-tight">
-            Cybersecurity that delivers<br />real business outcomes.
+          <h2 className="font-heading text-[36px] md:text-[42px] font-light text-[#111111] leading-tight">
+            Why Samsung Business
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {cards.map((card) => (
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {features.map((feature) => (
             <div
-              key={card.title}
-              className="relative rounded-2xl overflow-hidden min-h-[360px] group"
+              key={feature.title}
+              className="bg-white border border-[#E5E5E5] rounded-xl p-6 hover:shadow-lg transition-shadow"
             >
-              <Image
-                src={card.image}
-                alt={card.title}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-              <div className="relative z-10 h-full flex flex-col justify-end p-8">
-                <h3 className="font-heading text-3xl font-light text-white mb-2">
-                  {card.title}
-                </h3>
-                <p className="text-white/80 text-sm leading-relaxed">
-                  {card.description}
-                </p>
+              <div className="w-12 h-12 rounded-full bg-[#1428A0]/10 flex items-center justify-center mb-5">
+                <feature.icon className="w-6 h-6 text-[#1428A0]" />
               </div>
+              <h3 className="font-heading text-lg text-[#111111] mb-2">
+                {feature.title}
+              </h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {feature.description}
+              </p>
             </div>
           ))}
         </div>
