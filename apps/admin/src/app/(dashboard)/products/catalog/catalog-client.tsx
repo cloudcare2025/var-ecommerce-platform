@@ -15,6 +15,7 @@ import {
 interface Distributor {
   name: string;
   sku: string;
+  skuCount: number;
   vpn: string | null;
   costCents: number | null;
   retailCents: number | null;
@@ -371,7 +372,14 @@ function ProductRow({
                             {d.name}
                           </span>
                         </td>
-                        <td className="py-2 pr-3 font-mono text-xs text-admin-text">{d.sku}</td>
+                        <td className="py-2 pr-3 font-mono text-xs text-admin-text">
+                          {d.skuCount > 1 ? (
+                            <span title={d.sku}>
+                              {d.sku.split(", ")[0]}
+                              <span className="text-admin-text-muted ml-1">(+{d.skuCount - 1})</span>
+                            </span>
+                          ) : d.sku}
+                        </td>
                         <td className="py-2 pr-3 font-mono text-xs text-admin-text-muted">{d.vpn ?? "\u2014"}</td>
                         <td className="py-2 text-right tabular-nums font-medium text-admin-text">{formatCents(d.costCents)}</td>
                         <td className="py-2 text-right tabular-nums text-admin-text-muted">{formatCents(d.retailCents)}</td>

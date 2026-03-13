@@ -1220,67 +1220,88 @@ export async function getCatalogProducts(params: {
     prisma.syncProduct.count({ where }),
   ]);
 
+  // Helper: merge multiple listings from same distributor into one row
+  // Picks best (lowest) cost, sums stock, joins SKUs, picks most recent sync
+  function mergeListings(
+    name: string,
+    listings: Array<{
+      distributorSku: string;
+      vendorPartNumber: string | null;
+      costPrice: bigint | null;
+      retailPrice: bigint | null;
+      sellPrice: bigint | null;
+      totalQuantity: bigint;
+      lastSyncedAt: Date | null;
+      mapPrice?: bigint | null;
+    }>
+  ) {
+    if (listings.length === 0) return null;
+
+    let bestCost: number | null = null;
+    let bestRetail: number | null = null;
+    let bestSell: number | null = null;
+    let bestMap: number | null = null;
+    let totalStock = 0;
+    let latestSync: Date | null = null;
+    const skus: string[] = [];
+    let vpn: string | null = null;
+
+    for (const l of listings) {
+      skus.push(l.distributorSku);
+      if (!vpn && l.vendorPartNumber) vpn = l.vendorPartNumber;
+      totalStock += Number(l.totalQuantity);
+
+      const cost = l.costPrice !== null ? Number(l.costPrice) : null;
+      if (cost !== null && (bestCost === null || cost < bestCost)) {
+        bestCost = cost;
+        // Use the pricing from the best-cost listing
+        bestRetail = l.retailPrice !== null ? Number(l.retailPrice) : null;
+        bestSell = l.sellPrice !== null ? Number(l.sellPrice) : null;
+        if ("mapPrice" in l && l.mapPrice !== null) bestMap = Number(l.mapPrice);
+      }
+      // If no cost yet, still capture retail/sell from first listing that has them
+      if (bestCost === null && bestRetail === null && l.retailPrice !== null) {
+        bestRetail = Number(l.retailPrice);
+      }
+      if (bestCost === null && bestSell === null && l.sellPrice !== null) {
+        bestSell = Number(l.sellPrice);
+      }
+      if ("mapPrice" in l && l.mapPrice !== null && bestMap === null) {
+        bestMap = Number(l.mapPrice);
+      }
+
+      if (l.lastSyncedAt && (!latestSync || l.lastSyncedAt > latestSync)) {
+        latestSync = l.lastSyncedAt;
+      }
+    }
+
+    return {
+      name,
+      sku: skus.join(", "),
+      skuCount: skus.length,
+      vpn,
+      costCents: bestCost,
+      retailCents: bestRetail,
+      sellCents: bestSell,
+      mapCents: bestMap,
+      stock: totalStock,
+      lastSynced: latestSync?.toISOString() ?? null,
+    };
+  }
+
   const products = items.map((item) => {
-    const distributors: Array<{
-      name: string;
-      sku: string;
-      vpn: string | null;
-      costCents: number | null;
-      retailCents: number | null;
-      sellCents: number | null;
-      mapCents: number | null;
-      stock: number;
-      lastSynced: string | null;
-    }> = [];
+    const merged = [
+      mergeListings("Ingram Micro", item.ingramListings),
+      mergeListings("TD SYNNEX", item.synnexListings),
+      mergeListings("D&H", item.dhListings),
+    ].filter((d) => d !== null);
 
-    for (const l of item.ingramListings) {
-      distributors.push({
-        name: "Ingram Micro",
-        sku: l.distributorSku,
-        vpn: l.vendorPartNumber,
-        costCents: l.costPrice !== null ? Number(l.costPrice) : null,
-        retailCents: l.retailPrice !== null ? Number(l.retailPrice) : null,
-        sellCents: l.sellPrice !== null ? Number(l.sellPrice) : null,
-        mapCents: null,
-        stock: Number(l.totalQuantity),
-        lastSynced: l.lastSyncedAt?.toISOString() ?? null,
-      });
-    }
-
-    for (const l of item.synnexListings) {
-      distributors.push({
-        name: "TD SYNNEX",
-        sku: l.distributorSku,
-        vpn: l.vendorPartNumber,
-        costCents: l.costPrice !== null ? Number(l.costPrice) : null,
-        retailCents: l.retailPrice !== null ? Number(l.retailPrice) : null,
-        sellCents: l.sellPrice !== null ? Number(l.sellPrice) : null,
-        mapCents: null,
-        stock: Number(l.totalQuantity),
-        lastSynced: l.lastSyncedAt?.toISOString() ?? null,
-      });
-    }
-
-    for (const l of item.dhListings) {
-      distributors.push({
-        name: "D&H",
-        sku: l.distributorSku,
-        vpn: l.vendorPartNumber,
-        costCents: l.costPrice !== null ? Number(l.costPrice) : null,
-        retailCents: l.retailPrice !== null ? Number(l.retailPrice) : null,
-        sellCents: l.sellPrice !== null ? Number(l.sellPrice) : null,
-        mapCents: l.mapPrice !== null ? Number(l.mapPrice) : null,
-        stock: Number(l.totalQuantity),
-        lastSynced: l.lastSyncedAt?.toISOString() ?? null,
-      });
-    }
-
-    const bestCost = distributors.reduce((min, d) => {
+    const bestCost = merged.reduce((min, d) => {
       if (d.costCents === null) return min;
       return min === null ? d.costCents : Math.min(min, d.costCents);
     }, null as number | null);
 
-    const totalStock = distributors.reduce((sum, d) => sum + d.stock, 0);
+    const totalStock = merged.reduce((sum, d) => sum + d.stock, 0);
 
     return {
       id: item.id,
@@ -1289,10 +1310,10 @@ export async function getCatalogProducts(params: {
       vendor: item.vendor.name,
       vendorSlug: item.vendor.slug,
       category: item.category,
-      distributorCount: distributors.length,
+      distributorCount: merged.length,
       bestCostCents: bestCost,
       totalStock,
-      distributors,
+      distributors: merged,
     };
   });
 
