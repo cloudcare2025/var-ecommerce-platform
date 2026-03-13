@@ -7,20 +7,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Generate Prisma client
-FROM base AS prisma
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY prisma ./prisma
-COPY prisma.config.ts ./
-COPY package.json ./
-RUN npx prisma generate
-
 # Build the application
 FROM base AS builder
 WORKDIR /app
-COPY --from=prisma /app/node_modules ./node_modules
-COPY --from=prisma /app/src/generated ./src/generated
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
