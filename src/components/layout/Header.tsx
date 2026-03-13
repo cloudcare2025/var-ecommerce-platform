@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Search,
@@ -197,9 +198,16 @@ export function Header() {
       <header className="bg-white sticky top-0 z-50 border-b border-[#E5E5E5] shadow-sm">
         <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex-shrink-0 flex items-baseline">
-            <span className="text-2xl font-bold tracking-tight text-black">SAMSUNG</span>
-            <span className="text-sm ml-2 text-gray-400">Business</span>
+          <Link href="/" className="flex-shrink-0 flex items-center gap-2">
+            <Image
+              src="/samsung-logo.png"
+              alt="Samsung"
+              width={140}
+              height={22}
+              className="h-5 w-auto"
+              priority
+            />
+            <span className="text-sm text-gray-400">Business</span>
           </Link>
 
           {/* Desktop Nav */}

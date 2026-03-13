@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Twitter, Linkedin, Facebook, Youtube, Instagram } from "lucide-react";
 
@@ -35,9 +36,13 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Brand */}
           <div>
-            <span className="text-2xl font-bold tracking-tight text-white block mb-4">
-              SAMSUNG
-            </span>
+            <Image
+              src="/samsung-logo.png"
+              alt="Samsung"
+              width={160}
+              height={25}
+              className="h-6 w-auto brightness-0 invert mb-4"
+            />
             <p className="text-sm text-white/60 mb-4">
               Enterprise technology that empowers your business.
             </p>
