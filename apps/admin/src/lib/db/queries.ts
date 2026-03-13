@@ -1290,11 +1290,23 @@ export async function getCatalogProducts(params: {
   }
 
   const products = items.map((item) => {
-    const merged = [
-      mergeListings("Ingram Micro", item.ingramListings),
-      mergeListings("TD SYNNEX", item.synnexListings),
-      mergeListings("D&H", item.dhListings),
-    ].filter((d) => d !== null);
+    const ingram = mergeListings("Ingram Micro", item.ingramListings);
+    const dh = mergeListings("D&H", item.dhListings);
+
+    // SYNNEX FTP field[22] "Cost Price" is actually MSRP/list price,
+    // NOT the reseller cost. Real dealer cost requires PNA API.
+    // Swap: move costPrice → MSRP column, null out fake cost & sell.
+    let synnex = mergeListings("TD SYNNEX", item.synnexListings);
+    if (synnex) {
+      synnex = {
+        ...synnex,
+        retailCents: synnex.costCents,   // costPrice is actually MSRP
+        costCents: null,                  // real cost unknown (PNA API only)
+        sellCents: null,                  // sell was calculated from fake cost
+      };
+    }
+
+    const merged = [ingram, synnex, dh].filter((d) => d !== null);
 
     const bestCost = merged.reduce((min, d) => {
       if (d.costCents === null) return min;

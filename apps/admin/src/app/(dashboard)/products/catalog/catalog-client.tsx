@@ -228,7 +228,7 @@ export default function CatalogClient({
                 <th className="text-left text-xs font-medium text-admin-text-muted px-4 py-3">Vendor</th>
                 <th className="text-left text-xs font-medium text-admin-text-muted px-4 py-3">Category</th>
                 <th className="text-center text-xs font-medium text-admin-text-muted px-4 py-3">Distributors</th>
-                <th className="text-right text-xs font-medium text-admin-text-muted px-4 py-3">Best Cost</th>
+                <th className="text-right text-xs font-medium text-admin-text-muted px-4 py-3">Best Our Cost</th>
                 <th className="text-right text-xs font-medium text-admin-text-muted px-4 py-3">Total Stock</th>
               </tr>
             </thead>
@@ -354,9 +354,9 @@ function ProductRow({
                     <th className="text-left pb-2 font-medium">Distributor</th>
                     <th className="text-left pb-2 font-medium">Dist. SKU</th>
                     <th className="text-left pb-2 font-medium">VPN</th>
-                    <th className="text-right pb-2 font-medium">Cost</th>
-                    <th className="text-right pb-2 font-medium">Retail</th>
-                    <th className="text-right pb-2 font-medium">Sell</th>
+                    <th className="text-right pb-2 font-medium">Our Cost</th>
+                    <th className="text-right pb-2 font-medium">MSRP</th>
+                    <th className="text-right pb-2 font-medium">Sell Price</th>
                     <th className="text-right pb-2 font-medium">MAP</th>
                     <th className="text-right pb-2 font-medium">Stock</th>
                     <th className="text-right pb-2 font-medium">Synced</th>
