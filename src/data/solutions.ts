@@ -297,83 +297,83 @@ export const industries: IndustrySolution[] = [
   {
     slug: "public-safety",
     name: "Public Safety",
-    headline: "Technology that protects and serves",
+    headline: "Support your personnel anywhere",
     description:
-      "Samsung public safety solutions equip first responders, law enforcement, and emergency services with rugged devices, secure communications, and real-time situational awareness tools built for the most demanding conditions.",
+      "Rugged Galaxy smartphones, tablets, and wearables built for the unpredictable and harsh demands of the public safety mission. CJIS-ready solutions with hardware-backed Knox security, DeX in Vehicle computing, and personnel location tracking.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/public-safety/04082025/B2B_PublicSafety_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
-        title: "FirstNet Ready Devices",
+        title: "Innovative & Versatile",
         description:
-          "Samsung Galaxy devices certified for FirstNet provide priority and preemption on AT&T's dedicated public safety network.",
+          "Rugged Galaxy devices designed for demanding public safety environments with health monitoring wearables and situational awareness tools.",
       },
       {
-        title: "Rugged for the Field",
+        title: "Efficient & Cost-Effective",
         description:
-          "Galaxy XCover and Tab Active series are built to MIL-STD-810H standards with glove touch, underwater operation, and programmable keys.",
+          "Reduce IT costs by streamlining deployment and management of Samsung devices with Knox Suite across your entire agency fleet.",
       },
       {
-        title: "In-Vehicle Solutions",
+        title: "Trusted & Secure",
         description:
-          "Samsung DeX transforms a Galaxy phone into a full desktop experience for patrol cars, enabling mobile dispatch, records, and mapping.",
+          "CJIS-ready solutions with hardware-backed Samsung Knox security. Trusted by the Chicago Police Department across 10,000 Galaxy devices.",
       },
       {
-        title: "Secure Evidence Management",
+        title: "DeX in Vehicle",
         description:
-          "Knox security ensures chain-of-custody for digital evidence with encrypted storage, tamper detection, and audit logging.",
+          "Transform Galaxy smartphones into full in-vehicle computing systems for patrol cars — mobile dispatch, records, and mapping without a laptop.",
       },
     ],
     products: [
-      "Galaxy XCover",
-      "Galaxy Tab Active",
+      "Galaxy XCover7 Pro",
+      "Galaxy Tab Active5",
       "Samsung DeX",
       "Knox Suite",
-      "Galaxy S Series",
+      "Galaxy Wearables",
     ],
     stats: [
-      { value: "FirstNet", label: "Certified devices" },
-      { value: "MIL-STD", label: "810H rated" },
-      { value: "5,000+", label: "Public safety agencies" },
+      { value: "10,000", label: "Devices at Chicago PD" },
+      { value: "30%", label: "First responder discount" },
+      { value: "CJIS", label: "Ready security platform" },
     ],
     cta: "Explore Public Safety Solutions",
   },
   {
     slug: "retail",
     name: "Retail",
-    headline: "Reimagine the retail experience",
+    headline: "Find your how with Samsung for retail",
     description:
-      "Samsung retail solutions blend digital and physical shopping with stunning signage, self-service kiosks, mobile POS systems, and analytics-driven displays that drive foot traffic, engagement, and sales conversion.",
+      "Immersive technology transforming retail from the inside out. Empower employees with familiar Galaxy devices, deploy mobile POS for secure personalized checkouts, and captivate customers with dynamic digital signage.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/retail/04082025/B2B_Retail_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
-        title: "In-Store Digital Signage",
+        title: "Employee Empowerment",
         description:
-          "Samsung Smart Signage and LED displays deliver eye-catching promotions, product information, and brand storytelling throughout the retail space.",
+          "Familiar Galaxy devices enable faster onboarding and better customer interactions. A device they know becomes the edge they need on the floor.",
       },
       {
-        title: "Self-Service Kiosks",
+        title: "Samsung for POS",
         description:
-          "Interactive kiosk displays with Tizen OS enable self-checkout, product lookup, and loyalty program enrollment without staff assistance.",
+          "Mobile point-of-sale solution enabling secure, personalized checkouts anywhere in the store with Galaxy tablets and Knox security.",
       },
       {
-        title: "Mobile Point of Sale",
+        title: "Connected Associate",
         description:
-          "Galaxy tablets and smartphones with Knox security serve as mobile POS devices, enabling associates to process transactions anywhere on the floor.",
+          "All-in-one productivity and customer experience solution combining communications, task management, and clienteling on a single Galaxy device.",
       },
       {
-        title: "Window & Outdoor Displays",
+        title: "Visual Merchandising",
         description:
-          "High-brightness and semi-outdoor displays attract shoppers with vibrant content visible through storefront windows and in open-air locations.",
+          "Dynamic digital signage with real-to-life quality and customized messaging. Indoor and outdoor displays for captivating visual experiences.",
       },
     ],
     products: [
-      "Smart Signage",
-      "LED Signage",
-      "Interactive Display",
-      "Galaxy Tab",
-      "MagicINFO",
+      "Galaxy XCover7 Pro",
+      "Galaxy Z Fold7",
+      "Galaxy Tab Active5",
+      "Galaxy Tab S10 Ultra",
+      "Retail Digital Signage",
     ],
     stats: [
       { value: "#1", label: "Global digital signage brand" },
@@ -385,44 +385,44 @@ export const industries: IndustrySolution[] = [
   {
     slug: "transportation",
     name: "Transportation",
-    headline: "Smarter transportation, safer journeys",
+    headline: "Fleet management made easy",
     description:
-      "Samsung transportation solutions modernize airports, transit systems, and logistics operations with passenger information displays, fleet management, rugged driver devices, and real-time operational dashboards.",
+      "From turn-key solutions to customized fleet management technology, Samsung makes it easy to deploy transportation solutions that best suit your company's and drivers' needs. ELD compliance, rugged devices, and IoT-driven insights.",
     heroImage:
       "https://images.samsung.com/is/image/samsung/assets/us/business/solutions/industries/transportation/04082025/B2B_Transportation_HD01_Industry-Header_DT.jpg?imwidth=1920",
     valueProps: [
       {
-        title: "Passenger Information Displays",
+        title: "ELD Compliance",
         description:
-          "High-brightness LED and LCD displays provide real-time arrivals, departures, gate changes, and wayfinding for airports and transit hubs.",
+          "Electronic Logging Device solutions with Omnitracs XRS integration for fleets, enabling productivity and efficiency improvements alongside regulatory compliance.",
       },
       {
-        title: "Fleet Management",
+        title: "Rugged Field Devices",
         description:
-          "Knox Suite manages driver devices fleet-wide with GPS tracking, route optimization, and compliance documentation on Galaxy tablets.",
+          "Galaxy Tab Active5 Pro and XCover7 Pro designed for drivers and field work, with IBM Maximo asset management integration for maintenance teams.",
       },
       {
-        title: "Rugged Driver Solutions",
+        title: "Driver Retention",
         description:
-          "Galaxy Tab Active and XCover devices withstand vehicle vibration, temperature extremes, and rough handling for drivers and field crews.",
+          "Knox security enables personal device use during downtime while protecting company data — keeping drivers happy and your fleet secure.",
       },
       {
-        title: "Operations Command Centers",
+        title: "IoT & Smart Signage",
         description:
-          "Samsung video walls and The Wall provide real-time operational visibility for control rooms, dispatch centers, and traffic management.",
+          "Smart signage and wearable technology deliver real-time notifications, passenger information, and data-driven insights across airports and transit hubs.",
       },
     ],
     products: [
-      "LED Signage",
-      "Smart Signage",
-      "Galaxy Tab Active",
+      "Galaxy Tab Active5 Pro",
+      "Galaxy XCover7 Pro",
+      "Galaxy A56",
       "Knox Suite",
-      "The Wall",
+      "SMART Signage",
     ],
     stats: [
-      { value: "200+", label: "Airports equipped" },
-      { value: "24/7", label: "Mission-critical operation" },
-      { value: "100K+", label: "Transit displays deployed" },
+      { value: "$599", label: "XCover7 Pro starting price" },
+      { value: "$729", label: "Tab Active5 Pro starting price" },
+      { value: "ELD", label: "Compliance ready" },
     ],
     cta: "Explore Transportation Solutions",
   },
