@@ -39,9 +39,9 @@ export function Footer() {
             <Image
               src="/samsung-logo.png"
               alt="Samsung"
-              width={160}
-              height={25}
-              className="h-6 w-auto brightness-0 invert mb-4"
+              width={200}
+              height={32}
+              className="h-8 w-auto brightness-0 invert mb-4"
             />
             <p className="text-sm text-white/60 mb-4">
               Enterprise technology that empowers your business.

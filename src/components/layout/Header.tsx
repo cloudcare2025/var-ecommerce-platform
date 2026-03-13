@@ -202,9 +202,9 @@ export function Header() {
             <Image
               src="/samsung-logo.png"
               alt="Samsung"
-              width={140}
-              height={22}
-              className="h-5 w-auto"
+              width={200}
+              height={32}
+              className="h-8 w-auto"
               priority
             />
             <span className="text-sm text-gray-400">Business</span>
