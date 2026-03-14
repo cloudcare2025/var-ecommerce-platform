@@ -1379,18 +1379,7 @@ export async function getCatalogProducts(params: {
     const ingram = mergeListings("Ingram Micro", item.ingramListings);
     const dh = mergeListings("D&H", item.dhListings);
 
-    // SYNNEX FTP field[22] "Cost Price" is actually MSRP/list price,
-    // NOT the reseller cost. Real dealer cost requires PNA API.
-    // Swap: move costPrice → MSRP column, null out fake cost & sell.
-    let synnex = mergeListings("TD SYNNEX", item.synnexListings);
-    if (synnex) {
-      synnex = {
-        ...synnex,
-        retailCents: synnex.costCents,   // costPrice is actually MSRP
-        costCents: null,                  // real cost unknown (PNA API only)
-        sellCents: null,                  // sell was calculated from fake cost
-      };
-    }
+    const synnex = mergeListings("TD SYNNEX", item.synnexListings);
 
     const merged = [ingram, synnex, dh].filter((d) => d !== null);
 
