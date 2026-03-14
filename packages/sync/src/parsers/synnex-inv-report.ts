@@ -26,8 +26,8 @@
  *   [19] (unknown)
  *   [20] UNSPSC
  *   [21] Description
- *   [22] Cost Price ($)
- *   [23] Retail/MSRP ($)
+ *   [22] Retail/MSRP ($) — confirmed via EC Express portal cross-check
+ *   [23] Contract/Dealer Cost ($) — reseller cost
  *   [24] (unknown)
  *   [25] Status
  *   [26]-[31] Various flags
@@ -92,8 +92,10 @@ export async function* parseSynnexInvReport(
       totalQuantity += qty;
     }
 
-    const costPrice = toCents(fields[22]);
-    const retailPrice = toCents(fields[23]);
+    // Field [22] = Retail/MSRP, Field [23] = Contract/Dealer Cost
+    // Previously these were swapped, causing MSRP to be stored as cost_price
+    const retailPrice = toCents(fields[22]);
+    const costPrice = toCents(fields[23]);
 
     const unspsc = fields[20]?.trim() || null;
     const upc = fields[32]?.trim() || null;
