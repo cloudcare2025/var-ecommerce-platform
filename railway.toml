@@ -1,22 +1,21 @@
 # Railway Deployment Configuration
-# This project deploys as a monorepo with multiple services.
-# Each service is configured separately in the Railway dashboard
-# using the "Root Directory" setting to point to the correct app.
+# ================================
+# Repo: cloudcare2025/var-ecommerce-platform (single repo, multi-branch)
 #
-# Services:
-#   1. admin     — Root Directory: apps/admin
-#   2. storefront-sonicwall — Root Directory: apps/storefront (BRAND_SLUG=sonicwall)
-#   3. postgres  — Railway-managed PostgreSQL
+# Architecture:
+#   main branch (monorepo)
+#     ├─ admin-portal      → Dockerfile: apps/admin/Dockerfile
+#     └─ sync-worker       → Dockerfile: packages/sync/Dockerfile
 #
-# To add a new brand storefront:
-#   1. Create a new Railway service in the project
-#   2. Set Root Directory to: apps/storefront
-#   3. Set BRAND_SLUG env var to the brand's slug
-#   4. Set DATABASE_URL to the shared Postgres connection string
-#   5. Add a custom domain for the brand
-
-[build]
-builder = "nixpacks"
+#   storefront-sonicwall branch (standalone Next.js)
+#     └─ storefront-sonicwall → Dockerfile at branch root
+#
+#   storefront-samsung branch (standalone Next.js)
+#     └─ storefront-samsung   → Dockerfile at branch root
+#
+# Each service sets RAILWAY_DOCKERFILE_PATH to select its Dockerfile.
+# Storefronts live on dedicated branches with standalone builds.
+# PostgreSQL is a Railway-managed service (shared by all).
 
 [deploy]
 healthcheckPath = "/api/health"
